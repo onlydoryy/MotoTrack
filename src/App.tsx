@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import "./App.css";
 
+// Supported vehicle categories and the three tabs on a vehicle profile.
 type VehicleType = "Car" | "Motorcycle" | "Van" | "Other";
 type Tab = "info" | "service" | "documents";
 
@@ -35,12 +36,14 @@ const maintenanceGroups = [
   { title: "Other routine maintenance", items: ["Spark plugs", "Timing belt / chain inspection", "Battery", "Wipers", "Motorcycle chain clean / lube / adjustment"] },
 ];
 
+// Lightweight metadata for documents listed in the Documents tab.
 type VehicleDocument = {
   id: string;
   name: string;
   dateAdded: string;
 };
 
+// Complete saved vehicle shape, including service history and document metadata.
 type Vehicle = {
   id: string;
   type: VehicleType;
@@ -61,6 +64,7 @@ type Vehicle = {
   documents: VehicleDocument[];
 };
 
+// Demo vehicles shown the first time the app is opened without saved data.
 const starterVehicles: Vehicle[] = [
   {
     id: "demo-car",
@@ -102,6 +106,7 @@ const starterVehicles: Vehicle[] = [
   },
 ];
 
+// Load saved vehicles and fill in missing fields from older versions of the app.
 function loadVehicles(): Vehicle[] {
   try {
     const saved = localStorage.getItem("mototrack-vehicles");
@@ -142,6 +147,7 @@ function loadVehicles(): Vehicle[] {
   }
 }
 
+// Simple inline SVG placeholder used when a vehicle has no uploaded photo.
 function VehicleIllustration({ type }: { type: VehicleType }) {
   if (type === "Motorcycle") {
     return (
@@ -195,10 +201,12 @@ function VehicleIllustration({ type }: { type: VehicleType }) {
   );
 }
 
+// Format mileage using Irish number separators (for example, 12,345).
 function formatMileage(mileage: number) {
   return new Intl.NumberFormat("en-IE").format(mileage);
 }
 
+// Convert a tax/test expiry date into a label and CSS status colour.
 function expiryStatus(date: string) {
   if (!date) return { label: "Not recorded", className: "status-neutral" };
 
@@ -221,6 +229,7 @@ function expiryStatus(date: string) {
   return { label: "Valid", className: "status-good" };
 }
 
+// Reusable MotoTrack logo button; clicking it returns to the garage overview.
 function Brand({ onClick }: { onClick: () => void }) {
   return (
     <button className="brand garage-brand" onClick={onClick} aria-label="MotoTrack home">
@@ -232,6 +241,7 @@ function Brand({ onClick }: { onClick: () => void }) {
   );
 }
 
+// Only these vehicle fields are editable in the Vehicle Info form.
 type VehicleInfoDraft = Pick<
   Vehicle,
   "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes"
@@ -275,8 +285,10 @@ function App() {
     }
   }, [vehicles]);
 
+  // Resolve the active vehicle ID to the full saved vehicle object.
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedId) ?? null;
 
+  // Filter and sort garage cards without repeating the work on unrelated renders.
   const visibleVehicles = useMemo(() => {
     let result = vehicles.filter((vehicle) => {
       const text = `${vehicle.make} ${vehicle.model} ${vehicle.registration}`.toLowerCase();
@@ -349,11 +361,13 @@ function App() {
     setIsEditingInfo(true);
   }
 
+  // Discard the draft and return to the read-only vehicle details.
   function cancelEditingInfo() {
     setInfoDraft(null);
     setIsEditingInfo(false);
   }
 
+  // Apply the edited details to the selected vehicle, then close edit mode.
   function saveVehicleInfo() {
     if (!selectedVehicle || !infoDraft) return;
     setVehicles((current) => current.map((vehicle) =>
@@ -363,6 +377,7 @@ function App() {
     setIsEditingInfo(false);
   }
 
+  // Update one field in the unsaved Vehicle Info draft.
   function updateInfoDraft(field: keyof VehicleInfoDraft, value: string) {
     setInfoDraft((current) => current ? { ...current, [field]: value } : current);
   }
@@ -504,6 +519,7 @@ function App() {
   }
 
   // Record the names of uploaded vehicle documents (full document storage comes later).
+  // Record the names of uploaded vehicle documents (full document storage comes later).
   function addDocument(event: ChangeEvent<HTMLInputElement>) {
     if (!selectedVehicle) return;
 
@@ -547,6 +563,7 @@ function App() {
               ← Back to My Garage
             </button>
 
+            {/* Header section: vehicle identity, registration, and photo. */}
             <div className="vehicle-hero">
               <div className="hero-copy">
                 <span className="eyebrow">{selectedVehicle.type} PROFILE</span>
@@ -583,6 +600,7 @@ function App() {
               </div>
             </div>
 
+            {/* At-a-glance mileage, motor tax, and test status. */}
             <div className="quick-stats">
               <div className="quick-stat">
                 <span className="stat-label">LAST RECORDED MILEAGE</span>
@@ -636,6 +654,7 @@ function App() {
               </div>
             </div>
 
+            {/* Navigation between vehicle information, service history, and documents. */}
             <div className="detail-tabs">
               <button className={activeTab === "info" ? "selected" : ""} onClick={() => setActiveTab("info")}>
                 ▤ Vehicle Info
