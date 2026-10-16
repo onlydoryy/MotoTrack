@@ -1395,3 +1395,44 @@ button:disabled {
     padding: 6px;
   }
 }
+
+
+/* Compact, read-only vehicle details and explicit edit mode */
+.vehicle-info-panel .section-heading { margin-bottom: 16px; }
+.vehicle-info-panel .section-heading > .button { flex: 0 0 auto; }
+.vehicle-details-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px;
+  overflow: hidden; border: 1px solid #2b3541; border-radius: 9px; background: #2b3541;
+}
+.vehicle-detail-item { min-width: 0; min-height: 70px; padding: 13px 15px; background: #121922; }
+.vehicle-detail-item > span {
+  display: block; margin-bottom: 7px; color: #8796a5; font-size: 9px; font-weight: 700;
+  letter-spacing: 0.55px; text-transform: uppercase;
+}
+.vehicle-detail-item > strong {
+  display: block; overflow-wrap: anywhere; color: #e3eaf0; font-size: 12px;
+  font-weight: 600; line-height: 1.5;
+}
+.vehicle-detail-item .detail-value-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 0.1px;
+}
+.vehicle-detail-notes { grid-column: 1 / -1; min-height: 58px; }
+.vehicle-detail-notes > strong { color: #b8c3ce; font-weight: 400; white-space: pre-wrap; }
+.info-edit-footer { align-items: center; }
+.info-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+.info-edit-footer .save-hint { max-width: 55%; line-height: 1.5; }
+@media (max-width: 800px) {
+  .vehicle-details-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vehicle-detail-notes { grid-column: 1 / -1; }
+}
+@media (max-width: 540px) {
+  .vehicle-info-panel .section-heading { align-items: flex-start; }
+  .vehicle-info-panel .section-heading > .button { padding: 0 10px; font-size: 10px; }
+  .vehicle-details-grid { grid-template-columns: 1fr 1fr; }
+  .vehicle-detail-item { padding: 11px; }
+  .vehicle-detail-item > strong { font-size: 11px; }
+  .info-edit-footer { align-items: stretch; }
+  .info-edit-footer .save-hint { max-width: none; }
+  .info-actions { width: 100%; }
+  .info-actions .button { flex: 1; }
+}
