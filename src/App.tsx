@@ -27,6 +27,8 @@ type Vehicle = {
   model: string;
   year: string;
   registration: string;
+  vin: string;
+  manufactureDate: string;
   mileage: number;
   colour: string;
   taxExpiry: string;
@@ -46,6 +48,8 @@ const starterVehicles: Vehicle[] = [
     model: "320d",
     year: "2008",
     registration: "Demo vehicle",
+    vin: "",
+    manufactureDate: "",
     mileage: 319000,
     colour: "Black",
     taxExpiry: "",
@@ -63,6 +67,8 @@ const starterVehicles: Vehicle[] = [
     model: "Bandit 600S",
     year: "2002",
     registration: "Demo vehicle",
+    vin: "",
+    manufactureDate: "",
     mileage: 45000,
     colour: "Blue",
     taxExpiry: "",
@@ -78,7 +84,30 @@ const starterVehicles: Vehicle[] = [
 function loadVehicles(): Vehicle[] {
   try {
     const saved = localStorage.getItem("mototrack-vehicles");
-    return saved ? (JSON.parse(saved) as Vehicle[]) : starterVehicles;
+    if (!saved) return starterVehicles;
+    const parsed = JSON.parse(saved) as Partial<Vehicle>[];
+    if (!Array.isArray(parsed)) return starterVehicles;
+
+    return parsed.map((vehicle, index) => ({
+      ...vehicle,
+      id: vehicle.id ?? `vehicle-${index}-${Date.now()}`,
+      type: vehicle.type ?? "Other",
+      make: vehicle.make ?? "",
+      model: vehicle.model ?? "",
+      year: vehicle.year ?? "",
+      registration: vehicle.registration ?? "",
+      vin: vehicle.vin ?? "",
+      manufactureDate: vehicle.manufactureDate ?? "",
+      mileage: typeof vehicle.mileage === "number" ? vehicle.mileage : 0,
+      colour: vehicle.colour ?? "",
+      taxExpiry: vehicle.taxExpiry ?? "",
+      testExpiry: vehicle.testExpiry ?? "",
+      notes: vehicle.notes ?? "",
+      image: vehicle.image ?? "",
+      dateAdded: typeof vehicle.dateAdded === "number" ? vehicle.dateAdded : Date.now(),
+      serviceRecords: vehicle.serviceRecords ?? [],
+      documents: vehicle.documents ?? [],
+    })) as Vehicle[];
   } catch {
     return starterVehicles;
   }
@@ -174,8 +203,15 @@ function Brand({ onClick }: { onClick: () => void }) {
   );
 }
 
+type VehicleInfoDraft = Pick<
+  Vehicle,
+  "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes"
+>;
+
 function App() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(loadVehicles);
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [infoDraft, setInfoDraft] = useState<VehicleInfoDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [filter, setFilter] = useState("All");
@@ -232,7 +268,9 @@ function App() {
       make: String(form.get("make")).trim(),
       model: String(form.get("model")).trim(),
       year: String(form.get("year")).trim(),
-      registration: String(form.get("registration")).trim() || "Not recorded",
+      registration: String(form.get("registration")).trim(),
+      vin: String(form.get("vin")).trim(),
+      manufactureDate: String(form.get("manufactureDate")),
       mileage: Number(form.get("mileage")) || 0,
       colour: String(form.get("colour")).trim(),
       taxExpiry: String(form.get("taxExpiry")),
@@ -251,14 +289,38 @@ function App() {
     setVehiclePhoto("");
   }
 
-  function updateVehicle(field: keyof Vehicle, value: string | number) {
+  function startEditingInfo() {
     if (!selectedVehicle) return;
+    setInfoDraft({
+      type: selectedVehicle.type,
+      make: selectedVehicle.make,
+      model: selectedVehicle.model,
+      year: selectedVehicle.year,
+      registration: selectedVehicle.registration,
+      vin: selectedVehicle.vin ?? "",
+      manufactureDate: selectedVehicle.manufactureDate ?? "",
+      colour: selectedVehicle.colour,
+      notes: selectedVehicle.notes,
+    });
+    setIsEditingInfo(true);
+  }
 
-    setVehicles((current) =>
-      current.map((vehicle) =>
-        vehicle.id === selectedVehicle.id ? { ...vehicle, [field]: value } : vehicle,
-      ),
-    );
+  function cancelEditingInfo() {
+    setInfoDraft(null);
+    setIsEditingInfo(false);
+  }
+
+  function saveVehicleInfo() {
+    if (!selectedVehicle || !infoDraft) return;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id ? { ...vehicle, ...infoDraft } : vehicle,
+    ));
+    setInfoDraft(null);
+    setIsEditingInfo(false);
+  }
+
+  function updateInfoDraft(field: keyof VehicleInfoDraft, value: string) {
+    setInfoDraft((current) => current ? { ...current, [field]: value } : current);
   }
 
   function handlePhotoUpload(event: ChangeEvent<HTMLInputElement>, vehicleId?: string) {
@@ -356,9 +418,9 @@ function App() {
       <main className="main-content">
         {selectedVehicle ? (
           <section className="page-content detail-page">
-            <Brand onClick={() => setSelectedId(null)} />
+            <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); }} />
 
-            <button className="back-button" onClick={() => setSelectedId(null)}>
+            <button className="back-button" onClick={() => { setSelectedId(null); cancelEditingInfo(); }}>
               ← Back to My Garage
             </button>
 
@@ -464,74 +526,62 @@ function App() {
             </div>
 
             {activeTab === "info" && (
-              <div className="detail-panel">
+              <div className="detail-panel vehicle-info-panel">
                 <div className="section-heading">
                   <div>
                     <h2>Vehicle information</h2>
-                    <p>Keep the main details up to date.</p>
+                    <p>{isEditingInfo ? "Update the details for this vehicle." : "Key details for your vehicle, all in one place."}</p>
                   </div>
+                  {!isEditingInfo && <button className="button button-secondary" onClick={startEditingInfo}>✎ Edit details</button>}
                 </div>
-
-                <div className="info-grid">
-                  <label className="field">
-                    <span>Make</span>
-                    <input value={selectedVehicle.make} onChange={(e) => updateVehicle("make", e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span>Model</span>
-                    <input value={selectedVehicle.model} onChange={(e) => updateVehicle("model", e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span>Vehicle type</span>
-                    <select value={selectedVehicle.type} onChange={(e) => updateVehicle("type", e.target.value)}>
-                      <option>Car</option><option>Motorcycle</option><option>Van</option><option>Other</option>
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Year</span>
-                    <input value={selectedVehicle.year} onChange={(e) => updateVehicle("year", e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span>Registration</span>
-                    <input value={selectedVehicle.registration} onChange={(e) => updateVehicle("registration", e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span>Colour</span>
-                    <input value={selectedVehicle.colour} onChange={(e) => updateVehicle("colour", e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span>Current mileage (km)</span>
-                    <input type="number" min="0" value={selectedVehicle.mileage} onChange={(e) => updateVehicle("mileage", Number(e.target.value))} />
-                  </label>
-                  <label className="field">
-                    <span>Motor tax expiry</span>
-                    <input type="date" value={selectedVehicle.taxExpiry} onChange={(e) => updateVehicle("taxExpiry", e.target.value)} />
-                  </label>
-
-                  {selectedVehicle.type !== "Motorcycle" && (
-                    <label className="field">
-                      <span>{selectedVehicle.type === "Van" ? "CVRT / test expiry" : "NCT expiry"}</span>
-                      <input type="date" value={selectedVehicle.testExpiry} onChange={(e) => updateVehicle("testExpiry", e.target.value)} />
-                    </label>
-                  )}
-
-                  <label className="field field-wide">
-                    <span>Notes</span>
-                    <textarea
-                      rows={3}
-                      value={selectedVehicle.notes}
-                      onChange={(e) => updateVehicle("notes", e.target.value)}
-                      placeholder="Add useful details, repairs, or reminders..."
-                    />
-                  </label>
-                </div>
-
-                <div className="panel-footer">
-                  <span className="save-hint"><span className="save-check">✓</span> Changes save automatically on this device</span>
-                  <button className="button button-danger-ghost" onClick={() => deleteVehicle(selectedVehicle.id)}>
-                    Delete vehicle
-                  </button>
-                </div>
+                {isEditingInfo && infoDraft ? (
+                  <form onSubmit={(event) => { event.preventDefault(); saveVehicleInfo(); }}>
+                    <div className="info-grid">
+                      <label className="field"><span>Make</span><input value={infoDraft.make} onChange={(event) => updateInfoDraft("make", event.target.value)} /></label>
+                      <label className="field"><span>Model</span><input value={infoDraft.model} onChange={(event) => updateInfoDraft("model", event.target.value)} /></label>
+                      <label className="field">
+                        <span>Vehicle type</span>
+                        <select value={infoDraft.type} onChange={(event) => updateInfoDraft("type", event.target.value as VehicleType)}>
+                          <option value="Car">Car</option><option value="Motorcycle">Motorcycle</option><option value="Van">Van</option><option value="Other">Other</option>
+                        </select>
+                      </label>
+                      <label className="field"><span>Model year</span><input value={infoDraft.year} onChange={(event) => updateInfoDraft("year", event.target.value)} inputMode="numeric" /></label>
+                      <label className="field"><span>Registration</span><input value={infoDraft.registration} onChange={(event) => updateInfoDraft("registration", event.target.value)} placeholder="e.g. 12-C-12345" /></label>
+                      <label className="field"><span>Colour</span><input value={infoDraft.colour} onChange={(event) => updateInfoDraft("colour", event.target.value)} placeholder="e.g. Black" /></label>
+                      <label className="field"><span>VIN / chassis number</span><input value={infoDraft.vin} onChange={(event) => updateInfoDraft("vin", event.target.value)} placeholder="Vehicle identification number" /></label>
+                      <label className="field"><span>Date of manufacture</span><input type="date" value={infoDraft.manufactureDate} onChange={(event) => updateInfoDraft("manufactureDate", event.target.value)} /></label>
+                      <label className="field field-wide">
+                        <span>Notes</span>
+                        <textarea rows={3} value={infoDraft.notes} onChange={(event) => updateInfoDraft("notes", event.target.value)} placeholder="Add useful details, repairs, or reminders..." />
+                      </label>
+                    </div>
+                    <div className="panel-footer info-edit-footer">
+                      <span className="save-hint">Changes are only saved when you select Save Changes.</span>
+                      <div className="info-actions">
+                        <button type="button" className="button button-secondary" onClick={cancelEditingInfo}>Cancel</button>
+                        <button type="submit" className="button button-primary">Save Changes</button>
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="vehicle-details-grid">
+                      <div className="vehicle-detail-item"><span>Make</span><strong>{selectedVehicle.make || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Model</span><strong>{selectedVehicle.model || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Vehicle type</span><strong>{selectedVehicle.type || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Model year</span><strong>{selectedVehicle.year || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Registration</span><strong>{selectedVehicle.registration || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Colour</span><strong>{selectedVehicle.colour || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>VIN / chassis number</span><strong className="detail-value-mono">{selectedVehicle.vin || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Date of manufacture</span><strong>{selectedVehicle.manufactureDate || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item vehicle-detail-notes"><span>Notes</span><strong>{selectedVehicle.notes || "No notes added"}</strong></div>
+                    </div>
+                    <div className="panel-footer info-view-footer">
+                      <span className="save-hint">Saved locally on this device.</span>
+                      <button className="button button-danger-ghost" onClick={() => deleteVehicle(selectedVehicle.id)}>Delete vehicle</button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -632,7 +682,7 @@ function App() {
           </section>
         ) : (
           <section className="page-content">
-            <Brand onClick={() => setSelectedId(null)} />
+            <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); }} />
 
             <div className="page-heading">
               <div>
@@ -718,7 +768,7 @@ function App() {
                   <button
                     className="vehicle-card"
                     key={vehicle.id}
-                    onClick={() => { setSelectedId(vehicle.id); setActiveTab("info"); }}
+                    onClick={() => { setSelectedId(vehicle.id); setActiveTab("info"); setIsEditingInfo(false); setInfoDraft(null); }}
                   >
                     <div className={`vehicle-card-image ${vehicle.image ? "has-photo" : ""}`}>
                       {vehicle.image ? (
@@ -829,6 +879,14 @@ function App() {
                 <label className="field">
                   <span>Registration</span>
                   <input name="registration" placeholder="e.g. 12-C-12345" />
+                </label>
+                <label className="field">
+                  <span>VIN / chassis number</span>
+                  <input name="vin" placeholder="Vehicle identification number" />
+                </label>
+                <label className="field">
+                  <span>Date of manufacture</span>
+                  <input name="manufactureDate" type="date" />
                 </label>
                 <label className="field">
                   <span>Current mileage (km)</span>
