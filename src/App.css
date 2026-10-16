@@ -1436,3 +1436,66 @@ button:disabled {
   .info-actions { width: 100%; }
   .info-actions .button { flex: 1; }
 }
+
+
+/* Service history redesign */
+.service-entry-form { display: flex; flex-direction: column; gap: 20px; }
+.service-kind-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.service-kind-switch button { display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; align-items: center; gap: 2px 10px; padding: 15px; border: 1px solid #303b47; border-radius: 9px; background: #111820; color: #dce4eb; text-align: left; cursor: pointer; }
+.service-kind-switch button > span { grid-row: 1 / 3; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: #26313b; }
+.service-kind-switch button strong { font-size: 12px; }
+.service-kind-switch button small { color: #8795a3; font-size: 10px; }
+.service-kind-switch button.active { border-color: #a8c957; background: #1b251c; box-shadow: inset 0 0 0 1px #a8c95722; }
+.service-kind-switch button.active > span { background: #344425; color: #c7e58b; }
+.maintenance-picker, .maintenance-tracker { padding: 17px; border: 1px solid #2b3541; border-radius: 10px; background: #121922; }
+.maintenance-picker-heading, .maintenance-tracker-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; margin-bottom: 15px; }
+.maintenance-picker-heading h3, .maintenance-tracker-heading h3, .record-list-heading h3 { margin: 0 0 5px; color: #e0e7ed; font-size: 13px; }
+.maintenance-picker-heading p, .maintenance-tracker-heading p { margin: 0; color: #8997a5; font-size: 10px; line-height: 1.6; }
+.selection-count { flex: 0 0 auto; padding: 5px 8px; border-radius: 5px; background: #26313b; color: #c5df8c; font-size: 9px; }
+.maintenance-search { display: flex; align-items: center; gap: 9px; padding: 0 11px; border: 1px solid #34404d; border-radius: 7px; background: #0f151c; color: #8d9ba9; }
+.maintenance-search > span { font-size: 20px; }
+.maintenance-search input { width: 100%; min-width: 0; padding: 10px 0; border: 0; outline: none; background: transparent; color: #e1e8ee; font-size: 11px; }
+.maintenance-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.maintenance-group h4 { margin: 0 0 9px; color: #9eacb9; font-size: 10px; text-transform: uppercase; letter-spacing: .7px; }
+.maintenance-options { display: flex; flex-direction: column; gap: 6px; }
+.maintenance-option { display: flex; align-items: center; gap: 9px; padding: 8px 9px; border: 1px solid #2c3742; border-radius: 6px; color: #b9c4ce; font-size: 10px; cursor: pointer; }
+.maintenance-option:hover { border-color: #58684a; }
+.maintenance-option.checked { border-color: #647a42; background: #202b20; color: #e1edce; }
+.maintenance-option input, .track-maintenance-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.custom-check { display: grid; place-items: center; width: 16px; height: 16px; flex: 0 0 16px; border: 1px solid #52606d; border-radius: 4px; color: #d1e8a0; font-size: 11px; }
+.maintenance-option.checked .custom-check { border-color: #a8c957; background: #344425; }
+.other-maintenance-field { margin-top: 17px; }
+.track-maintenance-toggle { display: flex; align-items: flex-start; gap: 11px; margin-top: 15px; padding: 12px; border: 1px solid #354333; border-radius: 7px; background: #19221b; cursor: pointer; }
+.track-maintenance-toggle::before { content: ""; width: 16px; height: 16px; flex: 0 0 16px; border: 1px solid #657b49; border-radius: 4px; background: #111820; }
+.track-maintenance-toggle:has(input:checked)::before { content: "✓"; display: grid; place-items: center; background: #344425; color: #d1e8a0; font-size: 11px; }
+.track-maintenance-toggle span { display: flex; flex-direction: column; gap: 5px; }
+.track-maintenance-toggle strong { color: #d8e4ce; font-size: 10px; }
+.track-maintenance-toggle small { color: #8d9b8a; font-size: 9px; line-height: 1.5; }
+.maintenance-no-results, .tracker-empty { margin: 12px 0 0; color: #8795a3; font-size: 10px; line-height: 1.6; }
+.repair-details { display: grid; grid-template-columns: 1fr; }
+.service-details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.service-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding-top: 16px; border-top: 1px solid #2b3541; }
+.service-form-footer > span { color: #8493a1; font-size: 10px; line-height: 1.5; }
+.maintenance-tracker { margin-top: 23px; }
+.tracker-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tracker-row { display: flex; align-items: flex-start; gap: 10px; padding: 11px; border: 1px solid #2b3541; border-radius: 7px; background: #151d26; }
+.tracker-check { display: grid; place-items: center; width: 20px; height: 20px; flex: 0 0 20px; border-radius: 6px; background: #2c3b25; color: #c4e28a; font-size: 11px; }
+.tracker-row > div { min-width: 0; }
+.tracker-row strong, .tracker-row small { display: block; overflow-wrap: anywhere; }
+.tracker-row strong { color: #dce4eb; font-size: 10px; }
+.tracker-row small { margin-top: 5px; color: #8795a3; font-size: 9px; }
+.record-list-heading { display: flex; align-items: center; justify-content: space-between; padding: 18px 0 5px; }
+.record-list-heading span { color: #8795a3; font-size: 10px; }
+.record-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.record-kind { padding: 3px 6px; border-radius: 4px; background: #293627; color: #c4e28a; font-size: 8px; font-weight: 700; text-transform: uppercase; }
+.record-kind.repair-kind { background: #352c25; color: #e5b16d; }
+.record-notes { display: block; margin-top: 6px; color: #91a0ae; font-size: 10px; line-height: 1.5; white-space: pre-wrap; }
+@media (max-width: 800px) { .maintenance-groups, .tracker-list { grid-template-columns: 1fr; } }
+@media (max-width: 540px) {
+  .service-kind-switch { grid-template-columns: 1fr; }
+  .maintenance-picker, .maintenance-tracker { padding: 12px; }
+  .maintenance-picker-heading { flex-direction: column; }
+  .service-details-grid { grid-template-columns: 1fr; }
+  .service-form-footer { align-items: stretch; flex-direction: column; }
+  .service-form-footer .button { width: 100%; }
+}
