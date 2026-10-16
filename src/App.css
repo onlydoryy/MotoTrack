@@ -1499,3 +1499,67 @@ button:disabled {
   .service-form-footer { align-items: stretch; flex-direction: column; }
   .service-form-footer .button { width: 100%; }
 }
+
+
+/* ==========================================================================
+   Receipt attachment controls
+   These styles make the receipt uploader and its temporary preview list readable.
+   ========================================================================== */
+.receipt-upload-field { align-items: flex-start; }
+.receipt-upload-button { position: relative; width: fit-content; overflow: hidden; }
+.receipt-upload-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.receipt-help { color: #aab6c2; font-size: 10px; line-height: 1.5; }
+.receipt-staging-list { display: flex; flex-direction: column; gap: 7px; width: 100%; margin-top: 5px; }
+.receipt-staging-item { display: flex; align-items: center; gap: 9px; padding: 7px; border: 1px solid #35414d; border-radius: 7px; background: #18212b; color: #e1e8ee; }
+.receipt-staging-item img { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 5px; object-fit: cover; }
+.receipt-staging-item span { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 10px; }
+.receipt-staging-item button { width: 27px; height: 27px; border: 1px solid #46515e; border-radius: 5px; background: #222d38; color: #f0b3b3; font-size: 18px; }
+
+/* ==========================================================================
+   Compact, clickable service-history cards
+   A collapsed card has a fixed-feeling preview; opening it reveals the full list.
+   ========================================================================== */
+.history-record { margin-top: 10px; overflow: hidden; border: 1px solid #303b47; border-radius: 9px; background: #121922; }
+.history-record.expanded { border-color: #586746; background: #151e25; }
+.history-record-toggle { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 22px; align-items: center; gap: 12px; width: 100%; min-height: 132px; padding: 14px; border: 0; background: transparent; color: #e8edf3; text-align: left; }
+.history-record-toggle:hover { background: #19232d; }
+.history-record-main { display: block; min-width: 0; }
+.history-record-title { display: block; margin-bottom: 6px; color: #f0f4f7; font-size: 12px; font-weight: 700; }
+.history-record-meta { display: block; color: #a9b5c1; font-size: 10px; }
+.history-record-preview { display: flex; flex-direction: column; gap: 2px; max-height: 5.1em; overflow: hidden; margin: 9px 0 0; padding-left: 17px; color: #d4dde5; font-size: 10px; line-height: 1.55; }
+.history-record-preview li { overflow: hidden; padding-right: 3px; text-overflow: ellipsis; white-space: nowrap; }
+.history-record-preview .preview-ellipsis { color: #c9df8a; font-weight: 800; list-style: none; margin-left: -13px; }
+.history-record-hint { display: block; margin-top: 7px; color: #a7bb7b; font-size: 9px; }
+.record-expand-icon { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #465343; border-radius: 6px; color: #d9f36a; font-size: 16px; }
+.history-record-details { padding: 17px; border-top: 1px solid #303b47; color: #e3eaf0; }
+.history-record-details h4 { margin: 0 0 10px; color: #e8edf3; font-size: 11px; }
+.history-record-full-list { display: flex; flex-direction: column; gap: 7px; margin: 0 0 18px; padding-left: 20px; color: #d6dfe7; font-size: 11px; line-height: 1.55; }
+.history-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.history-detail-grid > span { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 10px; border: 1px solid #303b47; border-radius: 6px; color: #dce4eb; font-size: 10px; overflow-wrap: anywhere; }
+.history-detail-grid strong, .history-detail-notes > strong { color: #aebbc7; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .45px; }
+.history-detail-notes { margin-top: 13px; padding: 12px; border: 1px solid #303b47; border-radius: 6px; }
+.history-detail-notes p { margin: 7px 0 0; color: #d6dfe7; font-size: 11px; line-height: 1.6; white-space: pre-wrap; }
+.history-receipts { margin-top: 17px; }
+.history-receipt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.history-receipt-grid a { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 7px; border: 1px solid #35414d; border-radius: 7px; background: #10161d; color: #dce4eb; text-decoration: none; }
+.history-receipt-grid a:hover { border-color: #a8c957; }
+.history-receipt-grid img { width: 100%; height: 125px; border-radius: 4px; object-fit: contain; background: #0b1015; }
+.history-receipt-grid a span { overflow-wrap: anywhere; color: #dce4eb; font-size: 10px; }
+
+/* ==========================================================================
+   Readability pass
+   Keep text and form controls light enough to stand out against the dark theme.
+   ========================================================================== */
+.detail-panel, .modal, .page-content { color: #e8edf3; }
+input, select, textarea { color: #e8edf3; }
+input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
+.detail-panel p, .detail-panel small, .modal p { color: #a6b2be; }
+.detail-panel h2, .detail-panel h3, .detail-panel h4, .modal h2 { color: #eef3f7; }
+.detail-panel button:not(.button-primary):not(.button-danger-ghost) { color: #dce4eb; }
+@media (max-width: 540px) {
+  .history-record-toggle { grid-template-columns: 30px minmax(0, 1fr) 22px; gap: 9px; padding: 11px; }
+  .history-record-toggle .record-cost { grid-column: 2; grid-row: 2; justify-self: start; margin-top: 4px; }
+  .history-record-toggle .record-expand-icon { grid-column: 3; grid-row: 1; }
+  .history-record-details { padding: 12px; }
+  .history-detail-grid { grid-template-columns: 1fr; }
+}
