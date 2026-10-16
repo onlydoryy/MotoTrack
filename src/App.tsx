@@ -6,13 +6,27 @@ import "./App.css";
 type VehicleType = "Car" | "Motorcycle" | "Van" | "Other";
 type Tab = "info" | "service" | "documents";
 
+type ServiceKind = "Service" | "Repair";
+
 type ServiceRecord = {
   id: string;
   date: string;
   description: string;
   mileage: number;
   cost: number;
+  kind?: ServiceKind;
+  items?: string[];
+  trackedItems?: string[];
+  garage?: string;
+  notes?: string;
 };
+
+const maintenanceGroups = [
+  { title: "Filters", items: ["Engine oil", "Oil filter", "Air filter", "Fuel filter", "Cabin / pollen filter"] },
+  { title: "Fluids", items: ["Coolant", "Brake fluid", "Gearbox oil", "Differential oil", "Power steering fluid"] },
+  { title: "Brakes & tyres", items: ["Brake pads", "Brake discs", "Tyre replacement", "Tyre rotation"] },
+  { title: "Other routine maintenance", items: ["Spark plugs", "Timing belt / chain inspection", "Battery", "Wipers", "Motorcycle chain clean / lube / adjustment"] },
+];
 
 type VehicleDocument = {
   id: string;
@@ -105,7 +119,14 @@ function loadVehicles(): Vehicle[] {
       notes: vehicle.notes ?? "",
       image: vehicle.image ?? "",
       dateAdded: typeof vehicle.dateAdded === "number" ? vehicle.dateAdded : Date.now(),
-      serviceRecords: vehicle.serviceRecords ?? [],
+      serviceRecords: (vehicle.serviceRecords ?? []).map((record) => ({
+        ...record,
+        kind: record.kind ?? "Service",
+        items: record.items ?? [],
+        trackedItems: record.trackedItems ?? [],
+        garage: record.garage ?? "",
+        notes: record.notes ?? "",
+      })),
       documents: vehicle.documents ?? [],
     })) as Vehicle[];
   } catch {
@@ -219,10 +240,17 @@ function App() {
   const [sort, setSort] = useState("newest");
   const [showAddModal, setShowAddModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [serviceKind, setServiceKind] = useState<ServiceKind>("Service");
   const [serviceDescription, setServiceDescription] = useState("");
+  const [selectedMaintenanceItems, setSelectedMaintenanceItems] = useState<string[]>([]);
+  const [serviceOtherItem, setServiceOtherItem] = useState("");
+  const [serviceTrackItems, setServiceTrackItems] = useState(true);
   const [serviceDate, setServiceDate] = useState("");
   const [serviceMileage, setServiceMileage] = useState("");
   const [serviceCost, setServiceCost] = useState("");
+  const [serviceGarage, setServiceGarage] = useState("");
+  const [serviceNotes, setServiceNotes] = useState("");
+  const [maintenanceSearch, setMaintenanceSearch] = useState("");
   const [vehiclePhoto, setVehiclePhoto] = useState("");
 
   useEffect(() => {
@@ -357,16 +385,50 @@ function App() {
     event.target.value = "";
   }
 
+  function toggleMaintenanceItem(item: string) {
+    setSelectedMaintenanceItems((current) =>
+      current.includes(item) ? current.filter((entry) => entry !== item) : [...current, item],
+    );
+  }
+
+  function resetServiceForm() {
+    setServiceDescription("");
+    setSelectedMaintenanceItems([]);
+    setServiceOtherItem("");
+    setServiceTrackItems(true);
+    setServiceDate("");
+    setServiceMileage("");
+    setServiceCost("");
+    setServiceGarage("");
+    setServiceNotes("");
+    setMaintenanceSearch("");
+  }
+
   function addServiceRecord(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedVehicle || !serviceDescription.trim()) return;
+    if (!selectedVehicle) return;
+
+    const customItem = serviceOtherItem.trim();
+    const items = serviceKind === "Service"
+      ? [...selectedMaintenanceItems, ...(customItem ? [customItem] : [])]
+      : [];
+    const description = serviceKind === "Service"
+      ? items.join(", ")
+      : serviceDescription.trim();
+
+    if (!description) return;
 
     const record: ServiceRecord = {
       id: crypto.randomUUID(),
       date: serviceDate || new Date().toISOString().slice(0, 10),
-      description: serviceDescription.trim(),
-      mileage: Number(serviceMileage) || selectedVehicle.mileage,
-      cost: Number(serviceCost) || 0,
+      description,
+      mileage: serviceMileage !== "" ? Number(serviceMileage) : selectedVehicle.mileage,
+      cost: serviceCost !== "" ? Number(serviceCost) : 0,
+      kind: serviceKind,
+      items,
+      trackedItems: serviceKind === "Service" && serviceTrackItems ? items : [],
+      garage: serviceGarage.trim(),
+      notes: serviceNotes.trim(),
     };
 
     setVehicles((current) =>
@@ -377,10 +439,7 @@ function App() {
       ),
     );
 
-    setServiceDescription("");
-    setServiceDate("");
-    setServiceMileage("");
-    setServiceCost("");
+    resetServiceForm();
   }
 
   function addDocument(event: ChangeEvent<HTMLInputElement>) {
@@ -594,39 +653,115 @@ function App() {
                   </div>
                 </div>
 
-                <form className="service-form" onSubmit={addServiceRecord}>
-                  <label className="field field-wide">
-                    <span>What work was carried out?</span>
-                    <input required value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} placeholder="e.g. Oil and filter change" />
-                  </label>
-                  <label className="field">
-                    <span>Date</span>
-                    <input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span>Mileage (km)</span>
-                    <input type="number" min="0" value={serviceMileage} onChange={(e) => setServiceMileage(e.target.value)} placeholder={String(selectedVehicle.mileage)} />
-                  </label>
-                  <label className="field">
-                    <span>Cost (€)</span>
-                    <input type="number" min="0" step="0.01" value={serviceCost} onChange={(e) => setServiceCost(e.target.value)} placeholder="0.00" />
-                  </label>
-                  <div className="field-action">
-                    <button className="button button-primary" type="submit">＋ Add service record</button>
+                <form className="service-entry-form" onSubmit={addServiceRecord}>
+                  <div className="service-kind-switch" role="group" aria-label="Record type">
+                    <button type="button" className={serviceKind === "Service" ? "active" : ""} onClick={() => setServiceKind("Service")}>
+                      <span>⚙</span><strong>Service</strong><small>Routine maintenance</small>
+                    </button>
+                    <button type="button" className={serviceKind === "Repair" ? "active" : ""} onClick={() => setServiceKind("Repair")}>
+                      <span>🔧</span><strong>Repair</strong><small>Fix a fault or replace a part</small>
+                    </button>
+                  </div>
+
+                  {serviceKind === "Service" ? (
+                    <div className="maintenance-picker">
+                      <div className="maintenance-picker-heading">
+                        <div><h3>What was maintained?</h3><p>Choose everything completed. You can search for less common jobs too.</p></div>
+                        <span className="selection-count">{selectedMaintenanceItems.length} selected</span>
+                      </div>
+                      <label className="maintenance-search">
+                        <span>⌕</span>
+                        <input value={maintenanceSearch} onChange={(event) => setMaintenanceSearch(event.target.value)} placeholder="Find maintenance items..." />
+                      </label>
+                      <div className="maintenance-groups">
+                        {maintenanceGroups.map((group) => {
+                          const visibleItems = group.items.filter((item) => item.toLowerCase().includes(maintenanceSearch.toLowerCase()));
+                          if (!visibleItems.length) return null;
+                          return (
+                            <div className="maintenance-group" key={group.title}>
+                              <h4>{group.title}</h4>
+                              <div className="maintenance-options">
+                                {visibleItems.map((item) => (
+                                  <label className={selectedMaintenanceItems.includes(item) ? "maintenance-option checked" : "maintenance-option"} key={item}>
+                                    <input type="checkbox" checked={selectedMaintenanceItems.includes(item)} onChange={() => toggleMaintenanceItem(item)} />
+                                    <span className="custom-check">{selectedMaintenanceItems.includes(item) ? "✓" : ""}</span>
+                                    <span>{item}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {!maintenanceGroups.some((group) => group.items.some((item) => item.toLowerCase().includes(maintenanceSearch.toLowerCase()))) && (
+                          <p className="maintenance-no-results">No matching preset. Add it in “Other maintenance” below.</p>
+                        )}
+                      </div>
+                      <label className="field other-maintenance-field">
+                        <span>Other maintenance (optional)</span>
+                        <input value={serviceOtherItem} onChange={(event) => setServiceOtherItem(event.target.value)} placeholder="e.g. Differential oil, fork seals, valve clearances" />
+                      </label>
+                      <label className="track-maintenance-toggle">
+                        <input type="checkbox" checked={serviceTrackItems} onChange={(event) => setServiceTrackItems(event.target.checked)} />
+                        <span><strong>Track these items for maintenance history</strong><small>Show when each selected item was last done. You can opt out for one-off jobs.</small></span>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="repair-details">
+                      <label className="field field-wide"><span>What needed repairing?</span><input required value={serviceDescription} onChange={(event) => setServiceDescription(event.target.value)} placeholder="e.g. Replaced alternator, fixed coolant leak" /></label>
+                    </div>
+                  )}
+
+                  <div className="service-details-grid">
+                    <label className="field"><span>Date completed</span><input type="date" value={serviceDate} onChange={(event) => setServiceDate(event.target.value)} /></label>
+                    <label className="field"><span>Mileage (km)</span><input type="number" min="0" value={serviceMileage} onChange={(event) => setServiceMileage(event.target.value)} placeholder={String(selectedVehicle.mileage)} /></label>
+                    <label className="field"><span>Cost (€)</span><input type="number" min="0" step="0.01" value={serviceCost} onChange={(event) => setServiceCost(event.target.value)} placeholder="Optional" /></label>
+                    <label className="field"><span>Garage / mechanic (optional)</span><input value={serviceGarage} onChange={(event) => setServiceGarage(event.target.value)} placeholder="Who carried out the work?" /></label>
+                    <label className="field field-wide"><span>Notes (optional)</span><textarea rows={2} value={serviceNotes} onChange={(event) => setServiceNotes(event.target.value)} placeholder="Parts used, symptoms, invoice details..." /></label>
+                  </div>
+                  <div className="service-form-footer">
+                    <span>{serviceKind === "Service" ? "Select at least one maintenance item or add a custom item." : "Keep a record of the repair, cost and who carried it out."}</span>
+                    <button className="button button-primary" type="submit">＋ Add {serviceKind.toLowerCase()} record</button>
                   </div>
                 </form>
 
+                <div className="maintenance-tracker">
+                  <div className="maintenance-tracker-heading"><div><h3>Maintenance tracker</h3><p>Based on the items you choose to track when logging a service.</p></div></div>
+                  {(() => {
+                    const tracked = new Map<string, ServiceRecord>();
+                    selectedVehicle.serviceRecords.forEach((record) => {
+                      (record.trackedItems ?? []).forEach((item) => {
+                        const existing = tracked.get(item);
+                        if (!existing || record.date > existing.date) tracked.set(item, record);
+                      });
+                    });
+                    return tracked.size ? (
+                      <div className="tracker-list">
+                        {[...tracked.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([item, record]) => (
+                          <div className="tracker-row" key={item}>
+                            <span className="tracker-check">✓</span>
+                            <div><strong>{item}</strong><small>Last recorded: {record.date} · {formatMileage(record.mileage)} km</small></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="tracker-empty">Tracked maintenance items will appear here after you log a service and leave tracking enabled.</p>
+                    );
+                  })()}
+                </div>
+
                 {selectedVehicle.serviceRecords.length ? (
                   <div className="record-list">
+                    <div className="record-list-heading"><h3>History</h3><span>{selectedVehicle.serviceRecords.length} record{selectedVehicle.serviceRecords.length === 1 ? "" : "s"}</span></div>
                     {selectedVehicle.serviceRecords.map((record) => (
                       <div className="record-row" key={record.id}>
-                        <div className="record-icon">🔧</div>
+                        <div className="record-icon">{record.kind === "Repair" ? "🔧" : "⚙"}</div>
                         <div className="record-main">
-                          <strong>{record.description}</strong>
-                          <span>{record.date} · {formatMileage(record.mileage)} km</span>
+                          <div className="record-title-line"><strong>{record.description}</strong><span className={record.kind === "Repair" ? "record-kind repair-kind" : "record-kind"}>{record.kind ?? "Service"}</span></div>
+                          <span>{record.date} · {formatMileage(record.mileage)} km{record.garage ? ` · ${record.garage}` : ""}</span>
+                          {record.notes && <small className="record-notes">{record.notes}</small>}
                         </div>
                         <strong className="record-cost">
-                          {record.cost ? `€${record.cost.toFixed(2)}` : "No cost added"}
+                          {record.cost ? `€${record.cost.toFixed(2)}` : "—"}
                         </strong>
                       </div>
                     ))}
