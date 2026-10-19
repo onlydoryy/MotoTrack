@@ -637,9 +637,12 @@ function App() {
                 ) : (
                   <VehicleIllustration type={selectedVehicle.type} />
                 )}
-                <span className="image-caption">
-                  {stagedVehiclePhoto?.id === selectedVehicle.id ? "PHOTO PREVIEW — NOT SAVED" : selectedVehicle.image ? "YOUR VEHICLE PHOTO" : "PLACEHOLDER ILLUSTRATION"}
-                </span>
+                {stagedVehiclePhoto?.id === selectedVehicle.id && (
+                  <span className="image-caption">PHOTO PREVIEW — NOT SAVED</span>
+                )}
+                {!selectedVehicle.image && stagedVehiclePhoto?.id !== selectedVehicle.id && (
+                  <span className="image-caption">PLACEHOLDER ILLUSTRATION</span>
+                )}
               </div>
             </div>
 
