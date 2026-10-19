@@ -1585,8 +1585,8 @@ input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
  .toolbar-controls .search-box input { width:100%; }
 }
 .crop-modal { width:min(560px,100%); }
-.crop-preview { position:relative; width:100%; aspect-ratio:4 / 3; overflow:hidden; border:1px solid #465343; border-radius:10px; background:#090e13; }
-.crop-preview img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
+.crop-preview { position:relative; width:100%; aspect-ratio:1 / 0.79; overflow:hidden; border:1px solid #465343; border-radius:10px; background:#090e13; cursor:grab; touch-action:none; user-select:none; }\n.crop-preview.is-dragging { cursor:grabbing; }
+.crop-preview img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; pointer-events:none; will-change:transform; }\n.crop-instructions { margin:0 0 10px; color:#aab7c3; font-size:11px; line-height:1.5; }\n.crop-drag-hint { position:absolute; right:10px; bottom:10px; display:flex; align-items:center; gap:6px; padding:6px 9px; border:1px solid #ffffff30; border-radius:6px; background:#080d13b8; color:#f0f4f8; font-size:10px; pointer-events:none; }\n.crop-drag-hint span { font-size:15px; }
 .crop-controls { display:flex; flex-direction:column; gap:14px; margin-top:18px; }
 .crop-controls label { display:grid; grid-template-columns:145px minmax(0,1fr); align-items:center; gap:14px; color:#cbd5de; font-size:11px; }
 .crop-controls input[type="range"] { width:100%; accent-color:#a8c957; }
