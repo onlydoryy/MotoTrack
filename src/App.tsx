@@ -60,6 +60,7 @@ type Vehicle = {
   notes: string;
   image: string;
   dateAdded: number;
+  favorite?: boolean;
   serviceRecords: ServiceRecord[];
   documents: VehicleDocument[];
 };
@@ -131,6 +132,7 @@ function loadVehicles(): Vehicle[] {
       notes: vehicle.notes ?? "",
       image: vehicle.image ?? "",
       dateAdded: typeof vehicle.dateAdded === "number" ? vehicle.dateAdded : Date.now(),
+      favorite: vehicle.favorite ?? false,
       serviceRecords: (vehicle.serviceRecords ?? []).map((record) => ({
         ...record,
         kind: record.kind ?? "Service",
@@ -302,6 +304,7 @@ function App() {
     });
 
     result = [...result].sort((a, b) => {
+      if (Boolean(a.favorite) !== Boolean(b.favorite)) return a.favorite ? -1 : 1;
       if (sort === "name-az") return `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`);
       if (sort === "name-za") return `${b.make} ${b.model}`.localeCompare(`${a.make} ${a.model}`);
       if (sort === "mileage-low") return a.mileage - b.mileage;
@@ -342,6 +345,13 @@ function App() {
     setActiveTab("info");
     setShowAddModal(false);
     setVehiclePhoto("");
+  }
+
+  // Toggle a favourite; favourites always appear before other vehicles.
+  function toggleFavorite(vehicleId: string) {
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === vehicleId ? { ...vehicle, favorite: !vehicle.favorite } : vehicle,
+    ));
   }
 
   // Copy saved details into a draft so Cancel can discard unsaved edits.
@@ -918,27 +928,29 @@ function App() {
           <section className="page-content">
             <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); }} />
 
-            <div className="page-heading">
-              <div>
-                <span className="eyebrow">YOUR VEHICLES</span>
-                <h1>My Garage<span className="heading-period">.</span></h1>
-                <p>All your vehicles, details and records in one place.</p>
-              </div>
-              <button className="button button-primary large-add" onClick={() => setShowAddModal(true)}>
-                ＋ Add vehicle
-              </button>
-            </div>
-
             <div className="garage-summary">
               <div className="summary-symbol">▦</div>
-              <div>
-                <span>YOUR GARAGE</span>
+              <div className="garage-summary-title">
+                <span>MY GARAGE</span>
                 <strong>{vehicles.length} {vehicles.length === 1 ? "vehicle" : "vehicles"}</strong>
               </div>
               <div className="summary-divider" />
-              <div className="summary-type"><span className="type-dot car-dot" />{vehicles.filter((v) => v.type === "Car").length} cars</div>
-              <div className="summary-type"><span className="type-dot bike-dot" />{vehicles.filter((v) => v.type === "Motorcycle").length} motorcycles</div>
-              <div className="summary-type"><span className="type-dot van-dot" />{vehicles.filter((v) => v.type === "Van").length} vans</div>
+              {([
+                { type: "Car", label: "cars", className: "car-dot" },
+                { type: "Motorcycle", label: "motorcycles", className: "bike-dot" },
+                { type: "Van", label: "vans", className: "van-dot" },
+                { type: "Other", label: "other", className: "other-dot" },
+              ] as const).map(({ type, label, className }) => {
+                const count = vehicles.filter((vehicle) => vehicle.type === type).length;
+                return count > 0 ? (
+                  <div className="summary-type" key={type}>
+                    <span className={`type-dot ${className}`} />{count} {label}
+                  </div>
+                ) : null;
+              })}
+              <button className="button button-primary large-add garage-add-button" onClick={() => setShowAddModal(true)}>
+                ＋ Add vehicle
+              </button>
             </div>
 
             <div className="garage-toolbar">
@@ -999,10 +1011,22 @@ function App() {
             {visibleVehicles.length ? (
               <div className="vehicle-grid">
                 {visibleVehicles.map((vehicle) => (
-                  <button
+                  <div
                     className="vehicle-card"
                     key={vehicle.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => { setSelectedId(vehicle.id); setActiveTab("info"); setIsEditingInfo(false); setInfoDraft(null); }}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedId(vehicle.id);
+                        setActiveTab("info");
+                        setIsEditingInfo(false);
+                        setInfoDraft(null);
+                      }
+                    }}
                   >
                     <div className={`vehicle-card-image ${vehicle.image ? "has-photo" : ""}`}>
                       {vehicle.image ? (
@@ -1011,6 +1035,15 @@ function App() {
                         <VehicleIllustration type={vehicle.type} />
                       )}
                       <span className="vehicle-type-pill">{vehicle.type}</span>
+                      <button
+                        type="button"
+                        className={`vehicle-favorite ${vehicle.favorite ? "is-favorite" : ""}`}
+                        aria-label={vehicle.favorite ? "Remove from favourites" : "Add to favourites"}
+                        aria-pressed={Boolean(vehicle.favorite)}
+                        title={vehicle.favorite ? "Remove from favourites" : "Add to favourites"}
+                        onClick={(event) => { event.stopPropagation(); toggleFavorite(vehicle.id); }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >★</button>
                       <span className="card-open">↗</span>
                     </div>
 
@@ -1027,7 +1060,7 @@ function App() {
                         <span className="view-details">View details <span>→</span></span>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             ) : (
