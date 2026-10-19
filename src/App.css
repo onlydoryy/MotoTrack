@@ -1601,3 +1601,46 @@ input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
 .photo-save-actions > span { width:100%; color:#d2dfb6; font-size:10px; line-height:1.5; }
 .photo-save-actions .button { min-height:30px; padding:0 10px; font-size:10px; }
 @media (max-width:540px) { .crop-controls label { grid-template-columns:1fr; gap:6px; } }
+
+
+/* Registration-first add-vehicle lookup */
+.registration-lookup-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 24px 18px 12px;
+  border: 1px solid #303b47;
+  border-radius: 10px;
+  background: #121922;
+  text-align: center;
+}
+.registration-lookup-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  border: 1px solid #465343;
+  border-radius: 12px;
+  background: #202b20;
+  color: #c9e58c;
+  font-size: 29px;
+}
+.registration-lookup-panel h3 { margin: 0 0 8px; color: #eef3f7; font-size: 17px; }
+.registration-lookup-panel > p { max-width: 390px; margin: 0 auto 20px; color: #a6b2be; font-size: 11px; line-height: 1.65; }
+.registration-lookup-field { text-align: left; }
+.registration-lookup-field input { text-transform: uppercase; }
+.registration-lookup-button { display: flex; align-items: center; justify-content: center; width: 100%; margin-top: 3px; text-decoration: none; }
+.registration-lookup-panel .registration-lookup-note { margin: 12px auto 20px; font-size: 10px; }
+.manual-entry-link {
+  align-self: center;
+  padding: 9px 4px;
+  border: 0;
+  background: transparent;
+  color: #c9e58c;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.manual-entry-link:hover { color: #e0f6b0; text-decoration: underline; }
+.back-to-lookup { align-self: flex-start; margin: -5px 0 12px; }
