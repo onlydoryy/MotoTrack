@@ -425,7 +425,8 @@ function App() {
     const image = new Image();
     image.onerror = () => window.alert("Could not open that image. Please try another one.");
     image.onload = () => {
-      // Match the garage card image frame (1 / 0.79) so the crop is what users see.\n      const aspect = 1 / 0.79;
+      // Match the garage card image frame (1 / 0.79) so the crop is what users see.
+      const aspect = 1 / 0.79;
       const baseWidth = Math.min(image.naturalWidth, image.naturalHeight * aspect);
       const baseHeight = baseWidth / aspect;
       const cropWidth = baseWidth / cropZoom;
@@ -433,7 +434,7 @@ function App() {
       const sx = Math.max(0, image.naturalWidth - cropWidth) * cropX / 100;
       const sy = Math.max(0, image.naturalHeight - cropHeight) * cropY / 100;
       const canvas = document.createElement("canvas");
-      canvas.width = 1200; canvas.height = 900;
+      canvas.width = 1200; canvas.height = Math.round(canvas.width / aspect);
       const context = canvas.getContext("2d");
       if (!context) { window.alert("Could not crop that image. Please try again."); return; }
       context.drawImage(image, sx, sy, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
@@ -1225,7 +1226,7 @@ function App() {
             <label><span>Zoom</span><input type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} /></label>
           </div>
           <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => { setCropSource(null); setCropTargetId(null); }}>Cancel</button>
-            <button type="button" className="button button-primary" onClick={confirmPhotoCrop}>OK — use this crop</button></div>
+            <button type="button" className="button button-primary" onClick={confirmPhotoCrop}>Confirm</button></div>
         </section>
       </div>}
     </div>
