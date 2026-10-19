@@ -261,6 +261,8 @@ function App() {
   const [customTypes, setCustomTypes] = useState<VehicleType[]>(["Car", "Motorcycle"]);
   const [sort, setSort] = useState("newest");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [registrationLookup, setRegistrationLookup] = useState("");
+  const [showManualVehicleForm, setShowManualVehicleForm] = useState(false);
   const [search, setSearch] = useState("");
   const [serviceKind, setServiceKind] = useState<ServiceKind>("Service");
   const [serviceDescription, setServiceDescription] = useState("");
@@ -352,6 +354,8 @@ function App() {
     setActiveTab("info");
     setShowAddModal(false);
     setVehiclePhoto("");
+    setRegistrationLookup("");
+    setShowManualVehicleForm(false);
   }
 
   // Toggle a favourite; favourites always appear before other vehicles.
@@ -1124,7 +1128,40 @@ function App() {
               </button>
             </div>
 
-            <form onSubmit={addVehicle}>
+            {!showManualVehicleForm ? (
+              <div className="registration-lookup-panel">
+                <span className="registration-lookup-icon" aria-hidden="true">⌕</span>
+                <h3>Start with your registration</h3>
+                <p>Check the official Irish vehicle services site for vehicle, motor tax and NCT details.</p>
+                <label className="field registration-lookup-field">
+                  <span>Irish vehicle registration</span>
+                  <input
+                    value={registrationLookup}
+                    onChange={(event) => setRegistrationLookup(event.target.value.toUpperCase())}
+                    placeholder="e.g. 08-C-12345"
+                    autoComplete="off"
+                  />
+                </label>
+                <a
+                  className="button button-primary registration-lookup-button"
+                  href="https://www.vehicleservices.gov.ie/cmv/search-result"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setRegistrationLookup((current) => current.trim().toUpperCase())}
+                >
+                  Open official vehicle lookup ↗
+                </a>
+                <p className="registration-lookup-note">The official site opens in a new tab. Automatic data import is not available yet, so review the results there and enter them into MotoTrack.</p>
+                <button type="button" className="manual-entry-link" onClick={() => setShowManualVehicleForm(true)}>
+                  Enter vehicle details manually →
+                </button>
+              </div>
+            ) : (
+              <>
+                <button type="button" className="manual-entry-link back-to-lookup" onClick={() => setShowManualVehicleForm(false)}>
+                  ← Back to registration lookup
+                </button>
+                <form onSubmit={addVehicle}>
               <label className="field">
                 <span>Vehicle type *</span>
                 <select name="type" required>
@@ -1154,7 +1191,7 @@ function App() {
                 </label>
                 <label className="field">
                   <span>Registration</span>
-                  <input name="registration" placeholder="e.g. 12-C-12345" />
+                  <input name="registration" value={registrationLookup} onChange={(event) => setRegistrationLookup(event.target.value.toUpperCase())} placeholder="e.g. 12-C-12345" />
                 </label>
                 <label className="field">
                   <span>VIN / chassis number</span>
@@ -1198,7 +1235,9 @@ function App() {
                 </button>
                 <button type="submit" className="button button-primary">Add to garage →</button>
               </div>
-            </form>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
