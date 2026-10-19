@@ -209,26 +209,34 @@ button:disabled {
 .garage-summary {
   display: flex;
   align-items: center;
-  gap: 18px;
-  min-height: 84px;
-  margin-top: 32px;
-  padding: 16px 20px;
+  gap: 22px;
+  min-height: 126px;
+  margin-top: 0;
+  margin-bottom: 28px;
+  padding: 25px 26px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: linear-gradient(105deg, #18212a, #141b23);
+  border-radius: 13px;
+  background: linear-gradient(105deg, #1b2631, #141b23);
+  box-shadow: 0 12px 30px #00000014;
 }
 
 .summary-symbol {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
   border: 1px solid #39483c;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #283128;
   color: var(--accent);
-  font-size: 21px;
+  font-size: 25px;
 }
+
+.garage-summary-title { display: flex; flex-direction: column; gap: 7px; min-width: 120px; }
+.garage-summary-title > span { color: #a4b1bd; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; }
+.garage-summary-title > strong { color: #f0f4f7; font-family: "Manrope", sans-serif; font-size: 23px; letter-spacing: -0.5px; }
+.garage-add-button { flex: 0 0 auto; margin-left: auto; }
 
 .garage-summary > div:nth-child(2) span,
 .garage-summary > div:nth-child(2) strong {
@@ -471,6 +479,10 @@ button:disabled {
   z-index: 1;
   width: 94%;
 }
+
+.vehicle-favorite { position: absolute; z-index: 2; bottom: 12px; left: 12px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #ffffff38; border-radius: 50%; background: #10161dc9; color: #c4cdd5; font-size: 20px; line-height: 1; cursor: pointer; backdrop-filter: blur(5px); transition: color 150ms ease, background 150ms ease, transform 150ms ease; }
+.vehicle-favorite:hover { transform: scale(1.08); background: #26313b; }
+.vehicle-favorite.is-favorite { border-color: #e5c66d; background: #332b19e8; color: #ffd86e; text-shadow: 0 0 10px #ffd86e55; }
 
 .vehicle-type-pill {
   position: absolute;
@@ -1262,14 +1274,10 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .garage-summary {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .summary-divider {
-    display: none;
-  }
+  .garage-summary { flex-wrap: wrap; gap: 14px; padding: 20px; }
+  .garage-summary-title { flex: 1; }
+  .garage-add-button { margin-left: 0; }
+  .summary-divider { display: none; }
 }
 
 @media (max-width: 540px) {
@@ -1295,22 +1303,12 @@ button:disabled {
     font-size: 10px;
   }
 
-  .garage-summary {
-    padding: 13px;
-  }
-
-  .summary-symbol {
-    width: 34px;
-    height: 34px;
-  }
-
-  .garage-summary > div:nth-child(2) strong {
-    font-size: 14px;
-  }
-
-  .summary-type {
-    font-size: 10px;
-  }
+  .garage-summary { gap: 12px; padding: 16px; }
+  .summary-symbol { width: 40px; height: 40px; flex-basis: 40px; }
+  .garage-summary-title { min-width: 0; }
+  .garage-summary-title > strong { font-size: 19px; }
+  .garage-add-button { width: 100%; justify-content: center; }
+  .summary-type { font-size: 10px; }
 
   .vehicle-grid {
     grid-template-columns: 1fr;
