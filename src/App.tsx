@@ -3,23 +3,47 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import "./App.css";
 
+// Supported vehicle categories and the three tabs on a vehicle profile.
 type VehicleType = "Car" | "Motorcycle" | "Van" | "Other";
 type Tab = "info" | "service" | "documents";
 
+// One history entry is either routine maintenance or a repair.
+type ServiceKind = "Service" | "Repair";
+
+// Receipt photos are stored with their history entry in this browser-only version.
+type ReceiptAttachment = { id: string; name: string; image: string };
+
+// Optional fields allow older saved records to load without breaking.
 type ServiceRecord = {
   id: string;
   date: string;
   description: string;
   mileage: number;
   cost: number;
+  kind?: ServiceKind;
+  items?: string[];
+  trackedItems?: string[];
+  garage?: string;
+  notes?: string;
+  receipts?: ReceiptAttachment[];
 };
 
+// Searchable preset jobs, grouped by the type of maintenance they belong to.
+const maintenanceGroups = [
+  { title: "Filters", items: ["Oil filter", "Air filter", "Fuel filter", "Cabin / pollen filter"] },
+  { title: "Fluids", items: ["Engine oil", "Coolant", "Brake fluid", "Gearbox oil", "Differential oil", "Power steering fluid"] },
+  { title: "Brakes & tyres", items: ["Brake pads", "Brake discs", "Tyre replacement", "Tyre rotation"] },
+  { title: "Other routine maintenance", items: ["Spark plugs", "Timing belt / chain inspection", "Battery", "Wipers", "Motorcycle chain clean / lube / adjustment"] },
+];
+
+// Lightweight metadata for documents listed in the Documents tab.
 type VehicleDocument = {
   id: string;
   name: string;
   dateAdded: string;
 };
 
+// Complete saved vehicle shape, including service history and document metadata.
 type Vehicle = {
   id: string;
   type: VehicleType;
@@ -36,10 +60,12 @@ type Vehicle = {
   notes: string;
   image: string;
   dateAdded: number;
+  favorite?: boolean;
   serviceRecords: ServiceRecord[];
   documents: VehicleDocument[];
 };
 
+// Demo vehicles shown the first time the app is opened without saved data.
 const starterVehicles: Vehicle[] = [
   {
     id: "demo-car",
@@ -81,6 +107,7 @@ const starterVehicles: Vehicle[] = [
   },
 ];
 
+// Load saved vehicles and fill in missing fields from older versions of the app.
 function loadVehicles(): Vehicle[] {
   try {
     const saved = localStorage.getItem("mototrack-vehicles");
@@ -105,7 +132,16 @@ function loadVehicles(): Vehicle[] {
       notes: vehicle.notes ?? "",
       image: vehicle.image ?? "",
       dateAdded: typeof vehicle.dateAdded === "number" ? vehicle.dateAdded : Date.now(),
-      serviceRecords: vehicle.serviceRecords ?? [],
+      favorite: vehicle.favorite ?? false,
+      serviceRecords: (vehicle.serviceRecords ?? []).map((record) => ({
+        ...record,
+        kind: record.kind ?? "Service",
+        items: record.items ?? [],
+        trackedItems: record.trackedItems ?? [],
+        garage: record.garage ?? "",
+        notes: record.notes ?? "",
+        receipts: record.receipts ?? [],
+      })),
       documents: vehicle.documents ?? [],
     })) as Vehicle[];
   } catch {
@@ -113,6 +149,7 @@ function loadVehicles(): Vehicle[] {
   }
 }
 
+// Simple inline SVG placeholder used when a vehicle has no uploaded photo.
 function VehicleIllustration({ type }: { type: VehicleType }) {
   if (type === "Motorcycle") {
     return (
@@ -166,10 +203,12 @@ function VehicleIllustration({ type }: { type: VehicleType }) {
   );
 }
 
+// Format mileage using Irish number separators (for example, 12,345).
 function formatMileage(mileage: number) {
   return new Intl.NumberFormat("en-IE").format(mileage);
 }
 
+// Convert a tax/test expiry date into a label and CSS status colour.
 function expiryStatus(date: string) {
   if (!date) return { label: "Not recorded", className: "status-neutral" };
 
@@ -192,6 +231,7 @@ function expiryStatus(date: string) {
   return { label: "Valid", className: "status-good" };
 }
 
+// Reusable MotoTrack logo button; clicking it returns to the garage overview.
 function Brand({ onClick }: { onClick: () => void }) {
   return (
     <button className="brand garage-brand" onClick={onClick} aria-label="MotoTrack home">
@@ -203,12 +243,15 @@ function Brand({ onClick }: { onClick: () => void }) {
   );
 }
 
+// Only these vehicle fields are editable in the Vehicle Info form.
 type VehicleInfoDraft = Pick<
   Vehicle,
   "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes"
 >;
 
+// Main app component: manages the garage, active vehicle, and forms.
 function App() {
+  // Load vehicle records from browser storage when the app starts.
   const [vehicles, setVehicles] = useState<Vehicle[]>(loadVehicles);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [infoDraft, setInfoDraft] = useState<VehicleInfoDraft | null>(null);
@@ -219,12 +262,23 @@ function App() {
   const [sort, setSort] = useState("newest");
   const [showAddModal, setShowAddModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [serviceKind, setServiceKind] = useState<ServiceKind>("Service");
   const [serviceDescription, setServiceDescription] = useState("");
+  const [selectedMaintenanceItems, setSelectedMaintenanceItems] = useState<string[]>([]);
+  const [serviceOtherItem, setServiceOtherItem] = useState("");
   const [serviceDate, setServiceDate] = useState("");
   const [serviceMileage, setServiceMileage] = useState("");
   const [serviceCost, setServiceCost] = useState("");
+  const [serviceGarage, setServiceGarage] = useState("");
+  const [serviceNotes, setServiceNotes] = useState("");
+  const [maintenanceSearch, setMaintenanceSearch] = useState("");
+  // Receipt photos waiting to be saved with the next history entry.
+  const [serviceReceipts, setServiceReceipts] = useState<ReceiptAttachment[]>([]);
+  // Keep track of which history entry is currently expanded.
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [vehiclePhoto, setVehiclePhoto] = useState("");
 
+  // Persist the latest garage data after each change.
   useEffect(() => {
     try {
       localStorage.setItem("mototrack-vehicles", JSON.stringify(vehicles));
@@ -233,8 +287,10 @@ function App() {
     }
   }, [vehicles]);
 
+  // Resolve the active vehicle ID to the full saved vehicle object.
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedId) ?? null;
 
+  // Filter and sort garage cards without repeating the work on unrelated renders.
   const visibleVehicles = useMemo(() => {
     let result = vehicles.filter((vehicle) => {
       const text = `${vehicle.make} ${vehicle.model} ${vehicle.registration}`.toLowerCase();
@@ -248,6 +304,7 @@ function App() {
     });
 
     result = [...result].sort((a, b) => {
+      if (Boolean(a.favorite) !== Boolean(b.favorite)) return a.favorite ? -1 : 1;
       if (sort === "name-az") return `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`);
       if (sort === "name-za") return `${b.make} ${b.model}`.localeCompare(`${a.make} ${a.model}`);
       if (sort === "mileage-low") return a.mileage - b.mileage;
@@ -258,6 +315,7 @@ function App() {
     return result;
   }, [vehicles, filter, customTypes, sort, search]);
 
+  // Read the add-vehicle form and create a new vehicle record.
   function addVehicle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -289,6 +347,14 @@ function App() {
     setVehiclePhoto("");
   }
 
+  // Toggle a favourite; favourites always appear before other vehicles.
+  function toggleFavorite(vehicleId: string) {
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === vehicleId ? { ...vehicle, favorite: !vehicle.favorite } : vehicle,
+    ));
+  }
+
+  // Copy saved details into a draft so Cancel can discard unsaved edits.
   function startEditingInfo() {
     if (!selectedVehicle) return;
     setInfoDraft({
@@ -305,11 +371,13 @@ function App() {
     setIsEditingInfo(true);
   }
 
+  // Discard the draft and return to the read-only vehicle details.
   function cancelEditingInfo() {
     setInfoDraft(null);
     setIsEditingInfo(false);
   }
 
+  // Apply the edited details to the selected vehicle, then close edit mode.
   function saveVehicleInfo() {
     if (!selectedVehicle || !infoDraft) return;
     setVehicles((current) => current.map((vehicle) =>
@@ -319,10 +387,12 @@ function App() {
     setIsEditingInfo(false);
   }
 
+  // Update one field in the unsaved Vehicle Info draft.
   function updateInfoDraft(field: keyof VehicleInfoDraft, value: string) {
     setInfoDraft((current) => current ? { ...current, [field]: value } : current);
   }
 
+  // Validate and save a vehicle photo as a local data URL.
   function handlePhotoUpload(event: ChangeEvent<HTMLInputElement>, vehicleId?: string) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -357,16 +427,94 @@ function App() {
     event.target.value = "";
   }
 
+  // Toggle a preset maintenance job in the current service checklist.
+  function toggleMaintenanceItem(item: string) {
+    setSelectedMaintenanceItems((current) =>
+      current.includes(item) ? current.filter((entry) => entry !== item) : [...current, item],
+    );
+  }
+
+  // Clear the entry form after a successful save.
+  function resetServiceForm() {
+    setServiceDescription("");
+    setSelectedMaintenanceItems([]);
+    setServiceOtherItem("");
+    setServiceReceipts([]);
+    setServiceDate("");
+    setServiceMileage("");
+    setServiceCost("");
+    setServiceGarage("");
+    setServiceNotes("");
+    setMaintenanceSearch("");
+  }
+
+  // Compress receipt images so storing them locally uses less browser storage.
+  async function handleReceiptUpload(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!files.length) return;
+
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (imageFiles.length !== files.length) window.alert("Please choose image files for receipts (JPG, PNG or WEBP).");
+    const acceptedFiles = imageFiles.filter((file) => file.size <= 10 * 1024 * 1024);
+    if (acceptedFiles.length !== imageFiles.length) window.alert("Each receipt image must be smaller than 10 MB before compression.");
+    if (!acceptedFiles.length) return;
+
+    try {
+      const compressedReceipts = await Promise.all(acceptedFiles.map((file) => new Promise<ReceiptAttachment>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Could not read the receipt image."));
+        reader.onload = () => {
+          const photo = new Image();
+          photo.onerror = () => reject(new Error("Could not open the receipt image."));
+          photo.onload = () => {
+            const maxDimension = 1400;
+            const scale = Math.min(1, maxDimension / Math.max(photo.width, photo.height));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(photo.width * scale));
+            canvas.height = Math.max(1, Math.round(photo.height * scale));
+            const context = canvas.getContext("2d");
+            if (!context) { reject(new Error("Could not process the receipt image.")); return; }
+            context.drawImage(photo, 0, 0, canvas.width, canvas.height);
+            resolve({ id: crypto.randomUUID(), name: file.name, image: canvas.toDataURL("image/jpeg", 0.72) });
+          };
+          photo.src = String(reader.result);
+        };
+        reader.readAsDataURL(file);
+      })));
+      setServiceReceipts((current) => [...current, ...compressedReceipts]);
+    } catch {
+      window.alert("A receipt image could not be processed. Please try again.");
+    }
+  }
+
+  // Save one combined history entry, including all selected work and receipt photos.
   function addServiceRecord(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedVehicle || !serviceDescription.trim()) return;
+    if (!selectedVehicle) return;
+
+    const customItem = serviceOtherItem.trim();
+    const items = serviceKind === "Service"
+      ? [...selectedMaintenanceItems, ...(customItem ? [customItem] : [])]
+      : [];
+    const description = serviceKind === "Service"
+      ? items.join(", ")
+      : serviceDescription.trim();
+
+    if (!description) return;
 
     const record: ServiceRecord = {
       id: crypto.randomUUID(),
       date: serviceDate || new Date().toISOString().slice(0, 10),
-      description: serviceDescription.trim(),
-      mileage: Number(serviceMileage) || selectedVehicle.mileage,
-      cost: Number(serviceCost) || 0,
+      description,
+      mileage: serviceMileage !== "" ? Number(serviceMileage) : selectedVehicle.mileage,
+      cost: serviceCost !== "" ? Number(serviceCost) : 0,
+      kind: serviceKind,
+      items,
+      trackedItems: serviceKind === "Service" ? items : [],
+      garage: serviceGarage.trim(),
+      notes: serviceNotes.trim(),
+      receipts: serviceReceipts,
     };
 
     setVehicles((current) =>
@@ -377,12 +525,11 @@ function App() {
       ),
     );
 
-    setServiceDescription("");
-    setServiceDate("");
-    setServiceMileage("");
-    setServiceCost("");
+    resetServiceForm();
   }
 
+  // Record the names of uploaded vehicle documents (full document storage comes later).
+  // Record the names of uploaded vehicle documents (full document storage comes later).
   function addDocument(event: ChangeEvent<HTMLInputElement>) {
     if (!selectedVehicle) return;
 
@@ -406,6 +553,7 @@ function App() {
     event.target.value = "";
   }
 
+  // Confirm before deleting a vehicle and its associated local history.
   function deleteVehicle(id: string) {
     if (!window.confirm("Delete this vehicle and its records? This cannot be undone.")) return;
 
@@ -415,6 +563,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      {/* Main content changes between the garage overview and a vehicle profile. */}
       <main className="main-content">
         {selectedVehicle ? (
           <section className="page-content detail-page">
@@ -424,6 +573,7 @@ function App() {
               ← Back to My Garage
             </button>
 
+            {/* Header section: vehicle identity, registration, and photo. */}
             <div className="vehicle-hero">
               <div className="hero-copy">
                 <span className="eyebrow">{selectedVehicle.type} PROFILE</span>
@@ -460,6 +610,7 @@ function App() {
               </div>
             </div>
 
+            {/* At-a-glance mileage, motor tax, and test status. */}
             <div className="quick-stats">
               <div className="quick-stat">
                 <span className="stat-label">LAST RECORDED MILEAGE</span>
@@ -513,6 +664,7 @@ function App() {
               </div>
             </div>
 
+            {/* Navigation between vehicle information, service history, and documents. */}
             <div className="detail-tabs">
               <button className={activeTab === "info" ? "selected" : ""} onClick={() => setActiveTab("info")}>
                 ▤ Vehicle Info
@@ -525,6 +677,7 @@ function App() {
               </button>
             </div>
 
+            {/* Vehicle details are read-only until Edit details is selected. */}
             {activeTab === "info" && (
               <div className="detail-panel vehicle-info-panel">
                 <div className="section-heading">
@@ -585,6 +738,7 @@ function App() {
               </div>
             )}
 
+            {/* Service/repair form and expandable history records for the selected vehicle. */}
             {activeTab === "service" && (
               <div className="detail-panel">
                 <div className="section-heading">
@@ -594,42 +748,131 @@ function App() {
                   </div>
                 </div>
 
-                <form className="service-form" onSubmit={addServiceRecord}>
-                  <label className="field field-wide">
-                    <span>What work was carried out?</span>
-                    <input required value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} placeholder="e.g. Oil and filter change" />
-                  </label>
-                  <label className="field">
-                    <span>Date</span>
-                    <input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span>Mileage (km)</span>
-                    <input type="number" min="0" value={serviceMileage} onChange={(e) => setServiceMileage(e.target.value)} placeholder={String(selectedVehicle.mileage)} />
-                  </label>
-                  <label className="field">
-                    <span>Cost (€)</span>
-                    <input type="number" min="0" step="0.01" value={serviceCost} onChange={(e) => setServiceCost(e.target.value)} placeholder="0.00" />
-                  </label>
-                  <div className="field-action">
-                    <button className="button button-primary" type="submit">＋ Add service record</button>
+                <form className="service-entry-form" onSubmit={addServiceRecord}>
+                  <div className="service-kind-switch" role="group" aria-label="Record type">
+                    <button type="button" className={serviceKind === "Service" ? "active" : ""} onClick={() => setServiceKind("Service")}>
+                      <span>⚙</span><strong>Service</strong><small>Routine maintenance</small>
+                    </button>
+                    <button type="button" className={serviceKind === "Repair" ? "active" : ""} onClick={() => setServiceKind("Repair")}>
+                      <span>🔧</span><strong>Repair</strong><small>Fix a fault or replace a part</small>
+                    </button>
+                  </div>
+
+                  {serviceKind === "Service" ? (
+                    <div className="maintenance-picker">
+                      <div className="maintenance-picker-heading">
+                        <div><h3>What was maintained?</h3><p>Choose everything completed. You can search for less common jobs too.</p></div>
+                        <span className="selection-count">{selectedMaintenanceItems.length} selected</span>
+                      </div>
+                      <label className="maintenance-search">
+                        <span>⌕</span>
+                        <input value={maintenanceSearch} onChange={(event) => setMaintenanceSearch(event.target.value)} placeholder="Find maintenance items..." />
+                      </label>
+                      <div className="maintenance-groups">
+                        {maintenanceGroups.map((group) => {
+                          const visibleItems = group.items.filter((item) => item.toLowerCase().includes(maintenanceSearch.toLowerCase()));
+                          if (!visibleItems.length) return null;
+                          return (
+                            <div className="maintenance-group" key={group.title}>
+                              <h4>{group.title}</h4>
+                              <div className="maintenance-options">
+                                {visibleItems.map((item) => (
+                                  <label className={selectedMaintenanceItems.includes(item) ? "maintenance-option checked" : "maintenance-option"} key={item}>
+                                    <input type="checkbox" checked={selectedMaintenanceItems.includes(item)} onChange={() => toggleMaintenanceItem(item)} />
+                                    <span className="custom-check">{selectedMaintenanceItems.includes(item) ? "✓" : ""}</span>
+                                    <span>{item}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {!maintenanceGroups.some((group) => group.items.some((item) => item.toLowerCase().includes(maintenanceSearch.toLowerCase()))) && (
+                          <p className="maintenance-no-results">No matching preset. Add it in “Other maintenance” below.</p>
+                        )}
+                      </div>
+                      <label className="field other-maintenance-field">
+                        <span>Other maintenance (optional)</span>
+                        <input value={serviceOtherItem} onChange={(event) => setServiceOtherItem(event.target.value)} placeholder="e.g. Differential oil, fork seals, valve clearances" />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="repair-details">
+                      <label className="field field-wide"><span>What needed repairing?</span><input required value={serviceDescription} onChange={(event) => setServiceDescription(event.target.value)} placeholder="e.g. Replaced alternator, fixed coolant leak" /></label>
+                    </div>
+                  )}
+
+                  <div className="service-details-grid">
+                    <label className="field"><span>Date completed</span><input type="date" value={serviceDate} onChange={(event) => setServiceDate(event.target.value)} /></label>
+                    <label className="field"><span>Mileage (km)</span><input type="number" min="0" value={serviceMileage} onChange={(event) => setServiceMileage(event.target.value)} placeholder={String(selectedVehicle.mileage)} /></label>
+                    <label className="field"><span>Cost (€)</span><input type="number" min="0" step="0.01" value={serviceCost} onChange={(event) => setServiceCost(event.target.value)} placeholder="Optional" /></label>
+                    <label className="field"><span>Garage / mechanic (optional)</span><input value={serviceGarage} onChange={(event) => setServiceGarage(event.target.value)} placeholder="Who carried out the work?" /></label>
+                    <label className="field field-wide"><span>Notes (optional)</span><textarea rows={2} value={serviceNotes} onChange={(event) => setServiceNotes(event.target.value)} placeholder="Parts used, symptoms, invoice details..." /></label>
+                    {/* Receipt photos are compressed and attached to this entry when saved. */}
+                    <div className="field field-wide receipt-upload-field">
+                      <span>Receipt photos (optional)</span>
+                      <label className="button button-secondary receipt-upload-button">＋ Attach receipt photos<input type="file" accept="image/*" multiple onChange={handleReceiptUpload} /></label>
+                      <small className="receipt-help">Image files only. Photos are resized to help save space on this device.</small>
+                      {serviceReceipts.length > 0 && <div className="receipt-staging-list">{serviceReceipts.map((receipt) => <div className="receipt-staging-item" key={receipt.id}><img src={receipt.image} alt={receipt.name} /><span>{receipt.name}</span><button type="button" aria-label={`Remove ${receipt.name}`} onClick={() => setServiceReceipts((current) => current.filter((item) => item.id !== receipt.id))}>×</button></div>)}</div>}
+                    </div>
+                  </div>
+                  <div className="service-form-footer">
+                    <span>{serviceKind === "Service" ? "Select at least one maintenance item or add a custom item." : "Keep a record of the repair, cost and who carried it out."}</span>
+                    <button className="button button-primary" type="submit">＋ Add {serviceKind.toLowerCase()} record</button>
                   </div>
                 </form>
 
+                {/* Each save creates one compact card; expand it to inspect all work and receipts. */}
                 {selectedVehicle.serviceRecords.length ? (
                   <div className="record-list">
-                    {selectedVehicle.serviceRecords.map((record) => (
-                      <div className="record-row" key={record.id}>
-                        <div className="record-icon">🔧</div>
-                        <div className="record-main">
-                          <strong>{record.description}</strong>
-                          <span>{record.date} · {formatMileage(record.mileage)} km</span>
-                        </div>
-                        <strong className="record-cost">
-                          {record.cost ? `€${record.cost.toFixed(2)}` : "No cost added"}
-                        </strong>
-                      </div>
-                    ))}
+                    <div className="record-list-heading"><h3>History</h3><span>{selectedVehicle.serviceRecords.length} record{selectedVehicle.serviceRecords.length === 1 ? "" : "s"}</span></div>
+                    {selectedVehicle.serviceRecords.map((record) => {
+                      // Convert older comma-separated descriptions into bullet points for display.
+                      const recordItems = record.items?.length
+                        ? record.items
+                        : record.kind === "Repair"
+                          ? [record.description]
+                          : record.description.split(", ").filter(Boolean);
+                      const isExpanded = expandedRecordId === record.id;
+                      const receipts = record.receipts ?? [];
+                      return (
+                        <article className={`history-record ${isExpanded ? "expanded" : ""}`} key={record.id}>
+                          <button type="button" className="history-record-toggle" aria-expanded={isExpanded} onClick={() => setExpandedRecordId(isExpanded ? null : record.id)}>
+                            <span className="record-icon">{record.kind === "Repair" ? "🔧" : "⚙"}</span>
+                            <span className="history-record-main">
+                              <strong className="history-record-title">{record.kind === "Repair" ? "Repair" : "Service"} · {record.date}</strong>
+                              <span className="history-record-meta">{formatMileage(record.mileage)} km{record.garage ? ` · ${record.garage}` : ""}</span>
+                              <ul className="history-record-preview">
+                                {recordItems.slice(0, 3).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
+                                {recordItems.length > 3 && <li className="preview-ellipsis">…</li>}
+                              </ul>
+                              <span className="history-record-hint">{isExpanded ? "Hide details" : "Click to view full record"}{receipts.length ? ` · ${receipts.length} receipt photo${receipts.length === 1 ? "" : "s"}` : ""}</span>
+                            </span>
+                            <strong className="record-cost">{record.cost ? `€${record.cost.toFixed(2)}` : "—"}</strong>
+                            <span className="record-expand-icon" aria-hidden="true">{isExpanded ? "−" : "+"}</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="history-record-details">
+                              <h4>{record.kind === "Repair" ? "Repair details" : "Work completed"}</h4>
+                              <ul className="history-record-full-list">{recordItems.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>
+                              <div className="history-detail-grid">
+                                <span><strong>Date</strong>{record.date}</span>
+                                <span><strong>Mileage</strong>{formatMileage(record.mileage)} km</span>
+                                <span><strong>Cost</strong>{record.cost ? `€${record.cost.toFixed(2)}` : "Not recorded"}</span>
+                                <span><strong>Garage / mechanic</strong>{record.garage || "Not recorded"}</span>
+                              </div>
+                              {record.notes && <div className="history-detail-notes"><strong>Notes</strong><p>{record.notes}</p></div>}
+                              {receipts.length > 0 && (
+                                <div className="history-receipts">
+                                  <h4>Attached receipts</h4>
+                                  <div className="history-receipt-grid">{receipts.map((receipt) => <a key={receipt.id} href={receipt.image} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}><img src={receipt.image} alt={receipt.name} /><span>{receipt.name}</span></a>)}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="empty-state">
@@ -641,6 +884,7 @@ function App() {
               </div>
             )}
 
+            {/* Paperwork tab: currently stores document names, not file contents. */}
             {activeTab === "documents" && (
               <div className="detail-panel">
                 <div className="section-heading">
@@ -684,27 +928,29 @@ function App() {
           <section className="page-content">
             <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); }} />
 
-            <div className="page-heading">
-              <div>
-                <span className="eyebrow">YOUR VEHICLES</span>
-                <h1>My Garage<span className="heading-period">.</span></h1>
-                <p>All your vehicles, details and records in one place.</p>
-              </div>
-              <button className="button button-primary large-add" onClick={() => setShowAddModal(true)}>
-                ＋ Add vehicle
-              </button>
-            </div>
-
             <div className="garage-summary">
               <div className="summary-symbol">▦</div>
-              <div>
-                <span>YOUR GARAGE</span>
+              <div className="garage-summary-title">
+                <span>MY GARAGE</span>
                 <strong>{vehicles.length} {vehicles.length === 1 ? "vehicle" : "vehicles"}</strong>
               </div>
               <div className="summary-divider" />
-              <div className="summary-type"><span className="type-dot car-dot" />{vehicles.filter((v) => v.type === "Car").length} cars</div>
-              <div className="summary-type"><span className="type-dot bike-dot" />{vehicles.filter((v) => v.type === "Motorcycle").length} motorcycles</div>
-              <div className="summary-type"><span className="type-dot van-dot" />{vehicles.filter((v) => v.type === "Van").length} vans</div>
+              {([
+                { type: "Car", label: "cars", className: "car-dot" },
+                { type: "Motorcycle", label: "motorcycles", className: "bike-dot" },
+                { type: "Van", label: "vans", className: "van-dot" },
+                { type: "Other", label: "other", className: "other-dot" },
+              ] as const).map(({ type, label, className }) => {
+                const count = vehicles.filter((vehicle) => vehicle.type === type).length;
+                return count > 0 ? (
+                  <div className="summary-type" key={type}>
+                    <span className={`type-dot ${className}`} />{count} {label}
+                  </div>
+                ) : null;
+              })}
+              <button className="button button-primary large-add garage-add-button" onClick={() => setShowAddModal(true)}>
+                ＋ Add vehicle
+              </button>
             </div>
 
             <div className="garage-toolbar">
@@ -765,10 +1011,22 @@ function App() {
             {visibleVehicles.length ? (
               <div className="vehicle-grid">
                 {visibleVehicles.map((vehicle) => (
-                  <button
+                  <div
                     className="vehicle-card"
                     key={vehicle.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => { setSelectedId(vehicle.id); setActiveTab("info"); setIsEditingInfo(false); setInfoDraft(null); }}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedId(vehicle.id);
+                        setActiveTab("info");
+                        setIsEditingInfo(false);
+                        setInfoDraft(null);
+                      }
+                    }}
                   >
                     <div className={`vehicle-card-image ${vehicle.image ? "has-photo" : ""}`}>
                       {vehicle.image ? (
@@ -777,6 +1035,15 @@ function App() {
                         <VehicleIllustration type={vehicle.type} />
                       )}
                       <span className="vehicle-type-pill">{vehicle.type}</span>
+                      <button
+                        type="button"
+                        className={`vehicle-favorite ${vehicle.favorite ? "is-favorite" : ""}`}
+                        aria-label={vehicle.favorite ? "Remove from favourites" : "Add to favourites"}
+                        aria-pressed={Boolean(vehicle.favorite)}
+                        title={vehicle.favorite ? "Remove from favourites" : "Add to favourites"}
+                        onClick={(event) => { event.stopPropagation(); toggleFavorite(vehicle.id); }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >★</button>
                       <span className="card-open">↗</span>
                     </div>
 
@@ -793,7 +1060,7 @@ function App() {
                         <span className="view-details">View details <span>→</span></span>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -826,6 +1093,7 @@ function App() {
         )}
       </main>
 
+      {/* Modal form for creating a new vehicle. */}
       {showAddModal && (
         <div
           className="modal-backdrop"
