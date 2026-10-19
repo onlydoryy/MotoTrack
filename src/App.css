@@ -1566,3 +1566,31 @@ input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
   .history-record-details { padding: 12px; }
   .history-detail-grid { grid-template-columns: 1fr; }
 }
+
+
+/* Neat garage controls: Filter, Sort, then Search */
+.toolbar-controls { display:flex; align-items:center; gap:9px; flex-wrap:wrap; min-width:0; }
+.garage-toolbar { align-items:flex-start; }
+.toolbar-control { display:flex; align-items:center; gap:7px; min-height:36px; padding:0 10px; border:1px solid #303b47; border-radius:8px; background:#141a22; color:#9ba8b5; font-size:10px; }
+.toolbar-control select { min-width:105px; max-width:170px; padding:8px 2px; border:0; outline:none; background:transparent; color:#e3eaf0; font-size:11px; cursor:pointer; }
+.filter-control select { min-width:125px; } .sort-control select { min-width:145px; }
+.toolbar-controls .search-box { min-width:190px; } .toolbar-controls .search-box input { width:145px; }
+.custom-filter { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:9px 11px; border:1px solid #303b47; border-radius:8px; background:#121922; color:#c7d0d9; font-size:10px; }
+@media (max-width:1200px) { .garage-toolbar { flex-direction:column; align-items:stretch; } .toolbar-controls { width:100%; } .custom-filter { width:fit-content; } }
+@media (max-width:650px) {
+ .toolbar-controls { display:grid; grid-template-columns:1fr 1fr; }
+ .toolbar-control { justify-content:space-between; min-width:0; }
+ .toolbar-control select,.filter-control select,.sort-control select { min-width:0; max-width:none; width:100%; }
+ .toolbar-controls .search-box { grid-column:1 / -1; min-width:0; width:100%; }
+ .toolbar-controls .search-box input { width:100%; }
+}
+.crop-modal { width:min(560px,100%); }
+.crop-preview { position:relative; width:100%; aspect-ratio:4 / 3; overflow:hidden; border:1px solid #465343; border-radius:10px; background:#090e13; }
+.crop-preview img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
+.crop-controls { display:flex; flex-direction:column; gap:14px; margin-top:18px; }
+.crop-controls label { display:grid; grid-template-columns:145px minmax(0,1fr); align-items:center; gap:14px; color:#cbd5de; font-size:11px; }
+.crop-controls input[type="range"] { width:100%; accent-color:#a8c957; }
+.photo-save-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.photo-save-actions > span { width:100%; color:#d2dfb6; font-size:10px; line-height:1.5; }
+.photo-save-actions .button { min-height:30px; padding:0 10px; font-size:10px; }
+@media (max-width:540px) { .crop-controls label { grid-template-columns:1fr; gap:6px; } }
