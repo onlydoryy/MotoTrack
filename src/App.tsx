@@ -4,7 +4,7 @@ import type { ChangeEvent, FormEvent } from "react";
 import "./App.css";
 
 // Supported vehicle categories and the three tabs on a vehicle profile.
-type VehicleType = "Car" | "Motorcycle" | "Van" | "Other";
+type VehicleType = "Car" | "Motorcycle" | "Commercial" | "Other";
 type Tab = "info" | "service" | "documents";
 
 // One history entry is either routine maintenance or a repair.
@@ -118,7 +118,7 @@ function loadVehicles(): Vehicle[] {
     return parsed.map((vehicle, index) => ({
       ...vehicle,
       id: vehicle.id ?? `vehicle-${index}-${Date.now()}`,
-      type: vehicle.type ?? "Other",
+      type: vehicle.type === "Van" ? "Commercial" : vehicle.type ?? "Other",
       make: vehicle.make ?? "",
       model: vehicle.model ?? "",
       year: vehicle.year ?? "",
@@ -170,7 +170,7 @@ function VehicleIllustration({ type }: { type: VehicleType }) {
     );
   }
 
-  const isVan = type === "Van";
+  const isVan = type === "Commercial";
   const isOther = type === "Other";
 
   return (
@@ -277,6 +277,12 @@ function App() {
   // Keep track of which history entry is currently expanded.
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [vehiclePhoto, setVehiclePhoto] = useState("");
+  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [cropTargetId, setCropTargetId] = useState<string | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
+  const [stagedVehiclePhoto, setStagedVehiclePhoto] = useState<{ id: string; image: string } | null>(null);
 
   // Persist the latest garage data after each change.
   useEffect(() => {
@@ -392,39 +398,58 @@ function App() {
     setInfoDraft((current) => current ? { ...current, [field]: value } : current);
   }
 
-  // Validate and save a vehicle photo as a local data URL.
+  // Stage a photo for cropping first; it is not saved until confirmed and explicitly saved.
   function handlePhotoUpload(event: ChangeEvent<HTMLInputElement>, vehicleId?: string) {
-    const file = event.target.files?.[0];
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      window.alert("Please choose an image file.");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      window.alert("Please choose an image smaller than 5 MB.");
-      return;
-    }
-
+    input.value = "";
+    if (!file.type.startsWith("image/")) { window.alert("Please choose an image file."); return; }
+    if (file.size > 5 * 1024 * 1024) { window.alert("Please choose an image smaller than 5 MB."); return; }
     const reader = new FileReader();
-
+    reader.onerror = () => window.alert("Could not read that image. Please try again.");
     reader.onload = () => {
-      const image = String(reader.result);
-
-      if (vehicleId) {
-        setVehicles((current) =>
-          current.map((vehicle) =>
-            vehicle.id === vehicleId ? { ...vehicle, image } : vehicle,
-          ),
-        );
-      } else {
-        setVehiclePhoto(image);
-      }
+      setCropSource(String(reader.result));
+      setCropTargetId(vehicleId ?? null);
+      setCropZoom(1);
+      setCropX(50);
+      setCropY(50);
     };
-
     reader.readAsDataURL(file);
-    event.target.value = "";
+  }
+
+  function confirmPhotoCrop() {
+    if (!cropSource) return;
+    const image = new Image();
+    image.onerror = () => window.alert("Could not open that image. Please try another one.");
+    image.onload = () => {
+      const aspect = 4 / 3;
+      const baseWidth = Math.min(image.naturalWidth, image.naturalHeight * aspect);
+      const baseHeight = baseWidth / aspect;
+      const cropWidth = baseWidth / cropZoom;
+      const cropHeight = baseHeight / cropZoom;
+      const sx = Math.max(0, image.naturalWidth - cropWidth) * cropX / 100;
+      const sy = Math.max(0, image.naturalHeight - cropHeight) * cropY / 100;
+      const canvas = document.createElement("canvas");
+      canvas.width = 1200; canvas.height = 900;
+      const context = canvas.getContext("2d");
+      if (!context) { window.alert("Could not crop that image. Please try again."); return; }
+      context.drawImage(image, sx, sy, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+      const croppedImage = canvas.toDataURL("image/jpeg", 0.88);
+      if (cropTargetId) setStagedVehiclePhoto({ id: cropTargetId, image: croppedImage });
+      else setVehiclePhoto(croppedImage);
+      setCropSource(null);
+      setCropTargetId(null);
+    };
+    image.src = cropSource;
+  }
+
+  function saveStagedVehiclePhoto() {
+    if (!stagedVehiclePhoto) return;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === stagedVehiclePhoto.id ? { ...vehicle, image: stagedVehiclePhoto.image } : vehicle,
+    ));
+    setStagedVehiclePhoto(null);
   }
 
   // Toggle a preset maintenance job in the current service checklist.
@@ -596,16 +621,21 @@ function App() {
                     onChange={(event) => handlePhotoUpload(event, selectedVehicle.id)}
                   />
                 </label>
+                {stagedVehiclePhoto?.id === selectedVehicle.id && <div className="photo-save-actions">
+                  <span>Preview ready — save it to keep this photo.</span>
+                  <button type="button" className="button button-secondary" onClick={() => setStagedVehiclePhoto(null)}>Discard</button>
+                  <button type="button" className="button button-primary" onClick={saveStagedVehiclePhoto}>Save photo</button>
+                </div>}
               </div>
 
               <div className="hero-image">
-                {selectedVehicle.image ? (
-                  <img src={selectedVehicle.image} alt={`${selectedVehicle.make} ${selectedVehicle.model}`} />
+                {(stagedVehiclePhoto?.id === selectedVehicle.id ? stagedVehiclePhoto.image : selectedVehicle.image) ? (
+                  <img src={stagedVehiclePhoto?.id === selectedVehicle.id ? stagedVehiclePhoto.image : selectedVehicle.image} alt={`${selectedVehicle.make} ${selectedVehicle.model}`} />
                 ) : (
                   <VehicleIllustration type={selectedVehicle.type} />
                 )}
                 <span className="image-caption">
-                  {selectedVehicle.image ? "YOUR VEHICLE PHOTO" : "PLACEHOLDER ILLUSTRATION"}
+                  {stagedVehiclePhoto?.id === selectedVehicle.id ? "PHOTO PREVIEW — NOT SAVED" : selectedVehicle.image ? "YOUR VEHICLE PHOTO" : "PLACEHOLDER ILLUSTRATION"}
                 </span>
               </div>
             </div>
@@ -635,7 +665,7 @@ function App() {
                 <span className="stat-label">
                   {selectedVehicle.type === "Motorcycle"
                     ? "NCT"
-                    : selectedVehicle.type === "Van"
+                    : selectedVehicle.type === "Commercial"
                       ? "CVRT / TEST"
                       : "NCT STATUS"}
                 </span>
@@ -695,7 +725,7 @@ function App() {
                       <label className="field">
                         <span>Vehicle type</span>
                         <select value={infoDraft.type} onChange={(event) => updateInfoDraft("type", event.target.value as VehicleType)}>
-                          <option value="Car">Car</option><option value="Motorcycle">Motorcycle</option><option value="Van">Van</option><option value="Other">Other</option>
+                          <option value="Car">Car</option><option value="Motorcycle">Motorcycle</option><option value="Commercial">Commercial</option><option value="Other">Other</option>
                         </select>
                       </label>
                       <label className="field"><span>Model year</span><input value={infoDraft.year} onChange={(event) => updateInfoDraft("year", event.target.value)} inputMode="numeric" /></label>
@@ -938,7 +968,7 @@ function App() {
               {([
                 { type: "Car", label: "cars", className: "car-dot" },
                 { type: "Motorcycle", label: "motorcycles", className: "bike-dot" },
-                { type: "Van", label: "vans", className: "van-dot" },
+                { type: "Commercial", label: "commercial", className: "van-dot" },
                 { type: "Other", label: "other", className: "other-dot" },
               ] as const).map(({ type, label, className }) => {
                 const count = vehicles.filter((vehicle) => vehicle.type === type).length;
@@ -954,58 +984,30 @@ function App() {
             </div>
 
             <div className="garage-toolbar">
-              <div className="filter-group">
-                {["All", "Car", "Motorcycle", "Van", "Other", "Custom"].map((item) => (
-                  <button
-                    key={item}
-                    className={`filter-button ${filter === item ? "chosen" : ""}`}
-                    onClick={() => setFilter(item)}
-                  >
-                    {item === "Car" ? "Cars"
-                      : item === "Motorcycle" ? "Motorcycles"
-                        : item === "Van" ? "Vans"
-                          : item === "Other" ? "Other"
-                            : item === "All" ? "All vehicles" : "Custom"}
-                  </button>
-                ))}
-              </div>
-
-              <div className="toolbar-right">
-                {filter === "Custom" && (
-                  <div className="custom-filter">
-                    {(["Car", "Motorcycle", "Van", "Other"] as VehicleType[]).map((type) => (
-                      <label key={type}>
-                        <input
-                          type="checkbox"
-                          checked={customTypes.includes(type)}
-                          onChange={(e) => setCustomTypes((current) =>
-                            e.target.checked
-                              ? [...current, type]
-                              : current.filter((item) => item !== type)
-                          )}
-                        />
-                        {type === "Motorcycle" ? "Bikes" : `${type}s`}
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                <label className="search-box">
-                  <span>⌕</span>
-                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search garage..." />
-                </label>
-
-                <label className="sort-select">
-                  <span>Sort:</span>
-                  <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                    <option value="newest">Recently added</option>
-                    <option value="name-az">Name A–Z</option>
-                    <option value="name-za">Name Z–A</option>
-                    <option value="mileage-low">Mileage: low to high</option>
-                    <option value="mileage-high">Mileage: high to low</option>
+              <div className="toolbar-controls">
+                <label className="toolbar-control filter-control"><span>Filter</span>
+                  <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter vehicles">
+                    <option value="All">All vehicles</option><option value="Car">Cars</option><option value="Motorcycle">Motorcycles</option>
+                    <option value="Commercial">Commercial</option><option value="Other">Other</option><option value="Custom">Custom selection…</option>
                   </select>
                 </label>
+                <label className="toolbar-control sort-control"><span>Sort</span>
+                  <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort vehicles">
+                    <option value="newest">Recently added</option><option value="name-az">Name A–Z</option><option value="name-za">Name Z–A</option>
+                    <option value="mileage-low">Mileage: low to high</option><option value="mileage-high">Mileage: high to low</option>
+                  </select>
+                </label>
+                <label className="search-box"><span>⌕</span>
+                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search garage..." aria-label="Search garage" />
+                </label>
               </div>
+              {filter === "Custom" && <div className="custom-filter">
+                {(["Car", "Motorcycle", "Commercial", "Other"] as VehicleType[]).map((type) => (
+                  <label key={type}><input type="checkbox" checked={customTypes.includes(type)} onChange={(event) =>
+                    setCustomTypes((current) => event.target.checked ? [...new Set([...current, type])] : current.filter((item) => item !== type))
+                  } />{type === "Motorcycle" ? "Motorcycles" : type === "Commercial" ? "Commercial" : type === "Other" ? "Other" : "Cars"}</label>
+                ))}
+              </div>}
             </div>
 
             {visibleVehicles.length ? (
@@ -1066,13 +1068,13 @@ function App() {
             ) : (
               <div className="garage-empty">
                 <div className="empty-garage-illustration">
-                  <VehicleIllustration type={filter === "Motorcycle" ? "Motorcycle" : filter === "Van" ? "Van" : "Car"} />
+                  <VehicleIllustration type={filter === "Motorcycle" ? "Motorcycle" : filter === "Commercial" ? "Commercial" : "Car"} />
                 </div>
                 <h2>{vehicles.length ? "No vehicles match your filters" : "Your garage starts here"}</h2>
                 <p>
                   {vehicles.length
                     ? "Try a different category or search term."
-                    : "Add your car, bike, van or another vehicle to start keeping its records together."}
+                    : "Add your car, bike, commercial vehicle or another vehicle to start keeping its records together."}
                 </p>
                 {vehicles.length ? (
                   <button className="button button-secondary" onClick={() => { setFilter("All"); setSearch(""); }}>
@@ -1194,6 +1196,24 @@ function App() {
           </div>
         </div>
       )}
+
+      {cropSource && <div className="modal-backdrop crop-backdrop" role="presentation" onMouseDown={(event) => {
+        if (event.target === event.currentTarget) { setCropSource(null); setCropTargetId(null); }
+      }}>
+        <section className="modal crop-modal" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+          <div className="modal-header"><div><span className="eyebrow">PHOTO EDITOR</span><h2 id="crop-title">Frame your vehicle photo</h2><p>Adjust the zoom and framing, then confirm your crop.</p></div>
+            <button type="button" className="modal-close" aria-label="Close photo editor" onClick={() => { setCropSource(null); setCropTargetId(null); }}>×</button>
+          </div>
+          <div className="crop-preview"><img src={cropSource} alt="Crop preview" style={{ objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})` }} /></div>
+          <div className="crop-controls">
+            <label><span>Zoom</span><input type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} /></label>
+            <label><span>Horizontal framing</span><input type="range" min="0" max="100" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} /></label>
+            <label><span>Vertical framing</span><input type="range" min="0" max="100" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} /></label>
+          </div>
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => { setCropSource(null); setCropTargetId(null); }}>Cancel</button>
+            <button type="button" className="button button-primary" onClick={confirmPhotoCrop}>OK — use this crop</button></div>
+        </section>
+      </div>}
     </div>
   );
 }
