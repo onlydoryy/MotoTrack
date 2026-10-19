@@ -1206,11 +1206,23 @@ function App() {
           <div className="modal-header"><div><span className="eyebrow">PHOTO EDITOR</span><h2 id="crop-title">Frame your vehicle photo</h2><p>Adjust the zoom and framing, then confirm your crop.</p></div>
             <button type="button" className="modal-close" aria-label="Close photo editor" onClick={() => { setCropSource(null); setCropTargetId(null); }}>×</button>
           </div>
-          <div className="crop-preview"><img src={cropSource} alt="Crop preview" style={{ objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})` }} /></div>
+          <p className="crop-instructions">Drag the photo to position it. Use the zoom slider to get closer.</p>
+          <div className={`crop-preview ${isCropDragging ? "is-dragging" : ""}`}
+            onPointerDown={(event) => { setIsCropDragging(true); event.currentTarget.setPointerCapture(event.pointerId); }}
+            onPointerMove={(event) => {
+              if (!isCropDragging) return;
+              const bounds = event.currentTarget.getBoundingClientRect();
+              setCropX((current) => Math.max(0, Math.min(100, current - event.movementX / bounds.width * 100)));
+              setCropY((current) => Math.max(0, Math.min(100, current - event.movementY / bounds.height * 100)));
+            }}
+            onPointerUp={() => setIsCropDragging(false)}
+            onPointerCancel={() => setIsCropDragging(false)}
+            onLostPointerCapture={() => setIsCropDragging(false)}>
+            <img src={cropSource} alt="Drag to frame vehicle photo" draggable={false} style={{ objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})` }} />
+            <span className="crop-drag-hint"><span>✥</span> Drag to reposition</span>
+          </div>
           <div className="crop-controls">
             <label><span>Zoom</span><input type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} /></label>
-            <label><span>Horizontal framing</span><input type="range" min="0" max="100" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} /></label>
-            <label><span>Vertical framing</span><input type="range" min="0" max="100" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} /></label>
           </div>
           <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => { setCropSource(null); setCropTargetId(null); }}>Cancel</button>
             <button type="button" className="button button-primary" onClick={confirmPhotoCrop}>OK — use this crop</button></div>
