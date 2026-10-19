@@ -1124,7 +1124,7 @@ function App() {
                 <select name="type" required>
                   <option value="Car">Car</option>
                   <option value="Motorcycle">Motorcycle</option>
-                  <option value="Van">Van</option>
+                  <option value="Commercial">Commercial</option>
                   <option value="Other">Other</option>
                 </select>
               </label>
