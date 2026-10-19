@@ -238,12 +238,12 @@ button:disabled {
 .garage-summary-title > strong { color: #f0f4f7; font-family: "Manrope", sans-serif; font-size: 23px; letter-spacing: -0.5px; }
 .garage-add-button { flex: 0 0 auto; margin-left: auto; }
 
-.garage-summary > div:nth-child(2) span,
-.garage-summary > div:nth-child(2) strong {
+.garage-summary-title > span,
+.garage-summary-title > strong {
   display: block;
 }
 
-.garage-summary > div:nth-child(2) span {
+.garage-summary-title > span {
   margin-bottom: 4px;
   color: #8b99a8;
   font-size: 9px;
@@ -251,7 +251,7 @@ button:disabled {
   letter-spacing: 1.2px;
 }
 
-.garage-summary > div:nth-child(2) strong {
+.garage-summary-title > strong {
   font-family: "Manrope", sans-serif;
   font-size: 17px;
 }
