@@ -282,6 +282,7 @@ function App() {
   const [cropZoom, setCropZoom] = useState(1);
   const [cropX, setCropX] = useState(50);
   const [cropY, setCropY] = useState(50);
+  const [isCropDragging, setIsCropDragging] = useState(false);
   const [stagedVehiclePhoto, setStagedVehiclePhoto] = useState<{ id: string; image: string } | null>(null);
 
   // Persist the latest garage data after each change.
@@ -414,6 +415,7 @@ function App() {
       setCropZoom(1);
       setCropX(50);
       setCropY(50);
+      setIsCropDragging(false);
     };
     reader.readAsDataURL(file);
   }
@@ -423,7 +425,7 @@ function App() {
     const image = new Image();
     image.onerror = () => window.alert("Could not open that image. Please try another one.");
     image.onload = () => {
-      const aspect = 4 / 3;
+      // Match the garage card image frame (1 / 0.79) so the crop is what users see.\n      const aspect = 1 / 0.79;
       const baseWidth = Math.min(image.naturalWidth, image.naturalHeight * aspect);
       const baseHeight = baseWidth / aspect;
       const cropWidth = baseWidth / cropZoom;
