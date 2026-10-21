@@ -598,8 +598,8 @@ function App() {
       {/* Main content changes between the garage overview and a vehicle profile. */}
       <main className="main-content">
         {selectedVehicle ? (
-          {/* Vehicle profile: photo/header, tabs, and the selected tab panel. */}
           <section className="page-content detail-page">
+            {/* Vehicle profile: photo/header, tabs, and the selected tab panel. */}
             <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); }} />
 
             <button className="back-button" onClick={() => { setSelectedId(null); cancelEditingInfo(); }}>
