@@ -1,13 +1,20 @@
 <!doctype html>
+<!-- Entry HTML: Vite loads the React app into #root. Most visible UI is defined in src/App.tsx. -->
 <html lang="en">
   <head>
+    <!-- UTF-8 supports standard international characters. -->
     <meta charset="UTF-8" />
+    <!-- Browser tab icon for MotoTrack. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Makes the layout scale correctly on phones and tablets. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vehicle-records</title>
+    <!-- Text shown in the browser tab. -->
+    <title>MotoTrack</title>
   </head>
   <body>
+    <!-- React mounts the interactive application inside this element. -->
     <div id="root"></div>
+    <!-- Vite/TypeScript entry point; it starts the React app. -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
