@@ -598,6 +598,7 @@ function App() {
       {/* Main content changes between the garage overview and a vehicle profile. */}
       <main className="main-content">
         {selectedVehicle ? (
+          {/* Vehicle profile: photo/header, tabs, and the selected tab panel. */}
           <section className="page-content detail-page">
             <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); }} />
 
@@ -606,6 +607,7 @@ function App() {
             </button>
 
             {/* Header section: vehicle identity, registration, and photo. */}
+            {/* Hero area summarises the selected vehicle and its uploaded photo. */}
             <div className="vehicle-hero">
               <div className="hero-copy">
                 <span className="eyebrow">{selectedVehicle.type} PROFILE</span>
@@ -705,6 +707,7 @@ function App() {
             </div>
 
             {/* Navigation between vehicle information, service history, and documents. */}
+            {/* Tabs switch between vehicle information, service history, and documents. */}
             <div className="detail-tabs">
               <button className={activeTab === "info" ? "selected" : ""} onClick={() => setActiveTab("info")}>
                 ▤ Vehicle Info
@@ -1106,6 +1109,7 @@ function App() {
       </main>
 
       {/* Modal form for creating a new vehicle. */}
+      {/* Add-vehicle modal: registration-first entry with manual entry as a fallback. */}
       {showAddModal && (
         <div
           className="modal-backdrop"
