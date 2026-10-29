@@ -279,6 +279,7 @@ function App() {
   const [serviceGarage, setServiceGarage] = useState("");
   const [serviceNotes, setServiceNotes] = useState("");
   const [maintenanceSearch, setMaintenanceSearch] = useState("");
+  const [openMaintenanceGroups, setOpenMaintenanceGroups] = useState<string[]>(["Fluids"]);
   // Receipt photos waiting to be saved with the next history entry.
   const [serviceReceipts, setServiceReceipts] = useState<ReceiptAttachment[]>([]);
   // Keep track of which history entry is currently expanded.
@@ -837,10 +838,20 @@ function App() {
                         {maintenanceGroups.map((group) => {
                           const visibleItems = group.items.filter((item) => item.toLowerCase().includes(maintenanceSearch.toLowerCase()));
                           if (!visibleItems.length) return null;
+                          const isOpen = maintenanceSearch.trim() !== "" || openMaintenanceGroups.includes(group.title);
                           return (
-                            <div className="maintenance-group" key={group.title}>
-                              <h4>{group.title}</h4>
-                              <div className="maintenance-options">
+                            <div className={`maintenance-group ${isOpen ? "is-open" : ""}`} key={group.title}>
+                              <button
+                                type="button"
+                                className="maintenance-group-toggle"
+                                aria-expanded={isOpen}
+                                onClick={() => setOpenMaintenanceGroups((current) => current.includes(group.title) ? current.filter((title) => title !== group.title) : [...current, group.title])}
+                              >
+                                <span>{group.title}</span>
+                                <span className="maintenance-group-summary">{visibleItems.filter((item) => selectedMaintenanceItems.includes(item)).length ? `${visibleItems.filter((item) => selectedMaintenanceItems.includes(item)).length} selected · ` : ""}{visibleItems.length} options</span>
+                                <span className="maintenance-group-chevron" aria-hidden="true">{isOpen ? "−" : "+"}</span>
+                              </button>
+                              {isOpen && <div className="maintenance-options">
                                 {visibleItems.map((item) => (
                                   <label className={selectedMaintenanceItems.includes(item) ? "maintenance-option checked" : "maintenance-option"} key={item}>
                                     <input type="checkbox" checked={selectedMaintenanceItems.includes(item)} onChange={() => toggleMaintenanceItem(item)} />
@@ -848,7 +859,7 @@ function App() {
                                     <span>{item}</span>
                                   </label>
                                 ))}
-                              </div>
+                              </div>}
                             </div>
                           );
                         })}
