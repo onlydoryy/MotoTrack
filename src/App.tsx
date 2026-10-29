@@ -33,7 +33,7 @@ const maintenanceGroups = [
   { title: "Filters", items: ["Oil filter", "Air filter", "Fuel filter", "Cabin / pollen filter"] },
   { title: "Fluids", items: ["Engine oil", "Coolant", "Brake fluid", "Gearbox oil", "Differential oil", "Power steering fluid"] },
   { title: "Brakes & tyres", items: ["Brake pads", "Brake discs", "Tyre replacement", "Tyre rotation"] },
-  { title: "Other routine maintenance", items: ["Spark plugs", "Timing belt / chain inspection", "Battery", "Wipers", "Motorcycle chain clean / lube / adjustment"] },
+  { title: "Other routine maintenance", items: ["Spark plugs", "Timing belt / chain inspection", "Battery", "Wipers"] },
 ];
 
 // Lightweight metadata for documents listed in the Documents tab.
@@ -542,11 +542,17 @@ function App() {
 
     if (!description) return;
 
+    const recordedMileage = serviceMileage !== "" ? Number(serviceMileage) : selectedVehicle.mileage;
+    if (!Number.isFinite(recordedMileage) || recordedMileage < selectedVehicle.mileage) {
+      window.alert("Service mileage cannot be lower than the vehicle's current mileage (" + formatMileage(selectedVehicle.mileage) + " km).");
+      return;
+    }
+
     const record: ServiceRecord = {
       id: crypto.randomUUID(),
       date: serviceDate || new Date().toISOString().slice(0, 10),
       description,
-      mileage: serviceMileage !== "" ? Number(serviceMileage) : selectedVehicle.mileage,
+      mileage: recordedMileage,
       cost: serviceCost !== "" ? Number(serviceCost) : 0,
       kind: serviceKind,
       items,
@@ -559,7 +565,7 @@ function App() {
     setVehicles((current) =>
       current.map((vehicle) =>
         vehicle.id === selectedVehicle.id
-          ? { ...vehicle, serviceRecords: [record, ...vehicle.serviceRecords] }
+          ? { ...vehicle, mileage: record.mileage, serviceRecords: [record, ...vehicle.serviceRecords] }
           : vehicle,
       ),
     );
@@ -863,7 +869,7 @@ function App() {
 
                   <div className="service-details-grid">
                     <label className="field"><span>Date completed</span><input type="date" value={serviceDate} onChange={(event) => setServiceDate(event.target.value)} /></label>
-                    <label className="field"><span>Mileage (km)</span><input type="number" min="0" value={serviceMileage} onChange={(event) => setServiceMileage(event.target.value)} placeholder={String(selectedVehicle.mileage)} /></label>
+                    <label className="field"><span>Mileage (km)</span><input type="number" min={selectedVehicle.mileage} value={serviceMileage} onChange={(event) => setServiceMileage(event.target.value)} placeholder={String(selectedVehicle.mileage)} /></label>
                     <label className="field"><span>Cost (€)</span><input type="number" min="0" step="0.01" value={serviceCost} onChange={(event) => setServiceCost(event.target.value)} placeholder="Optional" /></label>
                     <label className="field"><span>Garage / mechanic (optional)</span><input value={serviceGarage} onChange={(event) => setServiceGarage(event.target.value)} placeholder="Who carried out the work?" /></label>
                     <label className="field field-wide"><span>Notes (optional)</span><textarea rows={2} value={serviceNotes} onChange={(event) => setServiceNotes(event.target.value)} placeholder="Parts used, symptoms, invoice details..." /></label>
