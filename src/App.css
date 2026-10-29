@@ -1653,3 +1653,15 @@ input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
 }
 .manual-entry-link:hover { color: #e0f6b0; text-decoration: underline; }
 .back-to-lookup { align-self: flex-start; margin: -5px 0 12px; }
+
+
+/* Service history: keep the record list as the default view and group form actions neatly. */
+.service-history-heading { align-items: center; }
+.service-history-heading .button { flex: 0 0 auto; white-space: nowrap; }
+.service-form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
+@media (max-width: 540px) {
+  .service-history-heading { align-items: stretch; flex-direction: column; }
+  .service-history-heading .button { width: 100%; }
+  .service-form-actions { width: 100%; flex-direction: column; }
+  .service-form-actions .button { width: 100%; }
+}
