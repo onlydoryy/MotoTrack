@@ -720,7 +720,7 @@ function App() {
               <button className={activeTab === "info" ? "selected" : ""} onClick={() => setActiveTab("info")}>
                 ▤ Vehicle Info
               </button>
-              <button className={activeTab === "service" ? "selected" : ""} onClick={() => setActiveTab("service")}>
+              <button className={activeTab === "service" ? "selected" : ""} onClick={() => { setShowServiceForm(false); setActiveTab("service"); }}>
                 ◷ Service History <span>{selectedVehicle.serviceRecords.length}</span>
               </button>
               <button className={activeTab === "documents" ? "selected" : ""} onClick={() => setActiveTab("documents")}>
