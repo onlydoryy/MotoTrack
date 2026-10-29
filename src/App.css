@@ -1665,3 +1665,14 @@ input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
   .service-form-actions { width: 100%; flex-direction: column; }
   .service-form-actions .button { width: 100%; }
 }
+
+
+/* Keep the history expand/collapse symbol centred in its square. */
+.history-record-toggle .record-expand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  text-align: center;
+}
