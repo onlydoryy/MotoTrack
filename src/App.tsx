@@ -269,6 +269,7 @@ function App() {
   const [showManualVehicleForm, setShowManualVehicleForm] = useState(false);
   const [search, setSearch] = useState("");
   const [serviceKind, setServiceKind] = useState<ServiceKind>("Service");
+  const [showServiceForm, setShowServiceForm] = useState(false);
   const [serviceDescription, setServiceDescription] = useState("");
   const [selectedMaintenanceItems, setSelectedMaintenanceItems] = useState<string[]>([]);
   const [serviceOtherItem, setServiceOtherItem] = useState("");
@@ -564,6 +565,7 @@ function App() {
     );
 
     resetServiceForm();
+    setShowServiceForm(false);
   }
 
   // Record the names of uploaded vehicle documents (full document storage comes later).
@@ -792,13 +794,19 @@ function App() {
             {/* Service/repair form and expandable history records for the selected vehicle. */}
             {activeTab === "service" && (
               <div className="detail-panel">
-                <div className="section-heading">
+                <div className="section-heading service-history-heading">
                   <div>
                     <h2>Service history</h2>
-                    <p>Record servicing, repairs, parts and other work.</p>
+                    <p>View and manage servicing, repairs, parts and other work.</p>
                   </div>
+                  {!showServiceForm && (
+                    <button className="button button-primary" type="button" onClick={() => setShowServiceForm(true)}>
+                      ＋ Add Service/Repair
+                    </button>
+                  )}
                 </div>
 
+                {showServiceForm && (
                 <form className="service-entry-form" onSubmit={addServiceRecord}>
                   <div className="service-kind-switch" role="group" aria-label="Record type">
                     <button type="button" className={serviceKind === "Service" ? "active" : ""} onClick={() => setServiceKind("Service")}>
@@ -869,9 +877,13 @@ function App() {
                   </div>
                   <div className="service-form-footer">
                     <span>{serviceKind === "Service" ? "Select at least one maintenance item or add a custom item." : "Keep a record of the repair, cost and who carried it out."}</span>
-                    <button className="button button-primary" type="submit">＋ Add {serviceKind.toLowerCase()} record</button>
+                    <div className="service-form-actions">
+                      <button className="button button-secondary" type="button" onClick={() => { resetServiceForm(); setShowServiceForm(false); }}>Cancel</button>
+                      <button className="button button-primary" type="submit">＋ Add {serviceKind.toLowerCase()} record</button>
+                    </div>
                   </div>
                 </form>
+                )}
 
                 {/* Each save creates one compact card; expand it to inspect all work and receipts. */}
                 {selectedVehicle.serviceRecords.length ? (
@@ -929,7 +941,7 @@ function App() {
                   <div className="empty-state">
                     <div className="empty-icon">◷</div>
                     <h3>No service records yet</h3>
-                    <p>Add your first service or repair above to start building the vehicle's history.</p>
+                    <p>Use the Add Service/Repair button above to record your first service or repair.</p>
                   </div>
                 )}
               </div>
