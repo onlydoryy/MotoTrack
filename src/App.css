@@ -1676,3 +1676,14 @@ input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
   padding: 0;
   text-align: center;
 }
+
+
+/* Collapsible maintenance categories keep the service form compact. */
+.maintenance-group { min-width: 0; overflow: hidden; border: 1px solid #2c3742; border-radius: 8px; background: #10171f; }
+.maintenance-group-toggle { display: grid; grid-template-columns: minmax(0,1fr) auto 20px; align-items: center; gap: 10px; width: 100%; padding: 12px; border: 0; background: #171f29; color: #e0e7ed; text-align: left; cursor: pointer; }
+.maintenance-group-toggle:hover, .maintenance-group.is-open .maintenance-group-toggle { background: #1d282e; }
+.maintenance-group-toggle > span:first-child { font-size: 11px; font-weight: 700; }
+.maintenance-group-summary { color: #91a0ae; font-size: 9px; text-align: right; }
+.maintenance-group-chevron { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #465343; border-radius: 5px; color: #c9e58c; font-size: 15px; line-height: 1; }
+.maintenance-group .maintenance-options { padding: 8px; }
+@media (max-width: 540px) { .maintenance-group-toggle { grid-template-columns: minmax(0,1fr) 20px; gap: 7px; } .maintenance-group-summary { grid-column: 1; grid-row: 2; text-align: left; } .maintenance-group-chevron { grid-column: 2; grid-row: 1 / 3; } }
