@@ -807,7 +807,7 @@ function App() {
                     <p>View and manage servicing, repairs, parts and other work.</p>
                   </div>
                   {!showServiceForm && (
-                    <button className="button button-primary" type="button" onClick={() => setShowServiceForm(true)}>
+                    <button className="button button-primary" type="button" onClick={() => { setMaintenanceSearch(""); setOpenMaintenanceGroups([]); setShowServiceForm(true); }}>
                       ＋ Add Service/Repair
                     </button>
                   )}
