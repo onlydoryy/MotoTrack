@@ -911,7 +911,6 @@ function App() {
                               </ul>
                               <span className="history-record-hint">{isExpanded ? "Hide details" : "Click to view full record"}{receipts.length ? ` · ${receipts.length} receipt photo${receipts.length === 1 ? "" : "s"}` : ""}</span>
                             </span>
-                            <strong className="record-cost">{record.cost ? `€${record.cost.toFixed(2)}` : "—"}</strong>
                             <span className="record-expand-icon" aria-hidden="true">{isExpanded ? "−" : "+"}</span>
                           </button>
                           {isExpanded && (
