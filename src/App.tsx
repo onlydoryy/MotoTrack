@@ -118,7 +118,7 @@ function loadVehicles(): Vehicle[] {
     return parsed.map((vehicle, index) => ({
       ...vehicle,
       id: vehicle.id ?? `vehicle-${index}-${Date.now()}`,
-      type: vehicle.type === "Van" ? "Commercial" : vehicle.type ?? "Other",
+      type: (vehicle.type as string) === "Van" ? "Commercial" : vehicle.type ?? "Other",
       make: vehicle.make ?? "",
       model: vehicle.model ?? "",
       year: vehicle.year ?? "",
