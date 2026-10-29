@@ -279,7 +279,7 @@ function App() {
   const [serviceGarage, setServiceGarage] = useState("");
   const [serviceNotes, setServiceNotes] = useState("");
   const [maintenanceSearch, setMaintenanceSearch] = useState("");
-  const [openMaintenanceGroups, setOpenMaintenanceGroups] = useState<string[]>(["Fluids"]);
+  const [openMaintenanceGroups, setOpenMaintenanceGroups] = useState<string[]>([]);
   // Receipt photos waiting to be saved with the next history entry.
   const [serviceReceipts, setServiceReceipts] = useState<ReceiptAttachment[]>([]);
   // Keep track of which history entry is currently expanded.
