@@ -57,6 +57,7 @@ type Vehicle = {
   colour: string;
   taxExpiry: string;
   testExpiry: string;
+  imported: boolean;
   notes: string;
   image: string;
   dateAdded: number;
@@ -80,6 +81,7 @@ const starterVehicles: Vehicle[] = [
     colour: "Black",
     taxExpiry: "",
     testExpiry: "",
+    imported: false,
     notes: "Add your own details to customise this vehicle record.",
     image: "",
     dateAdded: 1,
@@ -99,6 +101,7 @@ const starterVehicles: Vehicle[] = [
     colour: "Blue",
     taxExpiry: "",
     testExpiry: "",
+    imported: false,
     notes: "",
     image: "",
     dateAdded: 2,
@@ -129,6 +132,7 @@ function loadVehicles(): Vehicle[] {
       colour: vehicle.colour ?? "",
       taxExpiry: vehicle.taxExpiry ?? "",
       testExpiry: vehicle.testExpiry ?? "",
+      imported: vehicle.imported ?? false,
       notes: vehicle.notes ?? "",
       image: vehicle.image ?? "",
       dateAdded: typeof vehicle.dateAdded === "number" ? vehicle.dateAdded : Date.now(),
@@ -246,7 +250,7 @@ function Brand({ onClick }: { onClick: () => void }) {
 // Only these vehicle fields are editable in the Vehicle Info form.
 type VehicleInfoDraft = Pick<
   Vehicle,
-  "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes"
+  "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes" | "imported"
 >;
 
 // Main app component: manages the garage, active vehicle, and forms.
@@ -342,6 +346,7 @@ function App() {
       colour: String(form.get("colour")).trim(),
       taxExpiry: String(form.get("taxExpiry")),
       testExpiry: String(form.get("testExpiry")),
+      imported: false,
       notes: "",
       image: vehiclePhoto,
       dateAdded: Date.now(),
@@ -378,6 +383,7 @@ function App() {
       manufactureDate: selectedVehicle.manufactureDate ?? "",
       colour: selectedVehicle.colour,
       notes: selectedVehicle.notes,
+      imported: selectedVehicle.imported ?? false,
     });
     setIsEditingInfo(true);
   }
@@ -399,8 +405,8 @@ function App() {
   }
 
   // Update one field in the unsaved Vehicle Info draft.
-  function updateInfoDraft(field: keyof VehicleInfoDraft, value: string) {
-    setInfoDraft((current) => current ? { ...current, [field]: value } : current);
+  function updateInfoDraft(field: keyof VehicleInfoDraft, value: string | boolean) {
+    setInfoDraft((current) => current ? { ...current, [field]: value } as VehicleInfoDraft : current);
   }
 
   // Stage a photo for cropping first; it is not saved until confirmed and explicitly saved.
@@ -746,6 +752,7 @@ function App() {
                       <label className="field"><span>Colour</span><input value={infoDraft.colour} onChange={(event) => updateInfoDraft("colour", event.target.value)} placeholder="e.g. Black" /></label>
                       <label className="field"><span>VIN / chassis number</span><input value={infoDraft.vin} onChange={(event) => updateInfoDraft("vin", event.target.value)} placeholder="Vehicle identification number" /></label>
                       <label className="field"><span>Date of manufacture</span><input type="date" value={infoDraft.manufactureDate} onChange={(event) => updateInfoDraft("manufactureDate", event.target.value)} /></label>
+                      <label className="field"><span>Imported</span><select value={infoDraft.imported ? "Yes" : "No"} onChange={(event) => updateInfoDraft("imported", event.target.value === "Yes")}><option value="No">No</option><option value="Yes">Yes</option></select></label>
                       <label className="field field-wide">
                         <span>Notes</span>
                         <textarea rows={3} value={infoDraft.notes} onChange={(event) => updateInfoDraft("notes", event.target.value)} placeholder="Add useful details, repairs, or reminders..." />
@@ -770,6 +777,7 @@ function App() {
                       <div className="vehicle-detail-item"><span>Colour</span><strong>{selectedVehicle.colour || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>VIN / chassis number</span><strong className="detail-value-mono">{selectedVehicle.vin || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Date of manufacture</span><strong>{selectedVehicle.manufactureDate || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Imported</span><strong>{(selectedVehicle.imported ?? false) ? "Yes" : "No"}</strong></div>
                       <div className="vehicle-detail-item vehicle-detail-notes"><span>Notes</span><strong>{selectedVehicle.notes || "No notes added"}</strong></div>
                     </div>
                     <div className="panel-footer info-view-footer">
