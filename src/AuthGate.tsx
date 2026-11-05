@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "./lib/supabase";
+import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import App from "./App";
 import "./AuthGate.css";
 
@@ -17,13 +17,17 @@ export default function AuthGate() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data, error: authError }) => {
+    const client = supabase;
+    if (!client) { setChecking(false); return; }
+    client.auth.getSession().then(({ data, error: authError }) => {
       if (!active) return;
       setSession(data.session);
       if (authError) setError(authError.message);
       setChecking(false);
+    }).catch((reason: unknown) => {
+      if (active) { setError(reason instanceof Error ? reason.message : "Could not initialise your session."); setChecking(false); }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (active) setSession(nextSession);
     });
     return () => { active = false; subscription.unsubscribe(); };
@@ -32,6 +36,8 @@ export default function AuthGate() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    const client = supabase;
+    if (!client) { setError("Supabase is not configured."); return; }
     setError("");
     setMessage("");
     const fields = new FormData(event.currentTarget);
@@ -48,11 +54,11 @@ export default function AuthGate() {
     setBusy(true);
     try {
       if (mode === "register") {
-        const { data, error: authError } = await supabase.auth.signUp({ email, password });
+        const { data, error: authError } = await client.auth.signUp({ email, password });
         if (authError) throw authError;
         if (!data.session) setMessage("Check your inbox for the confirmation email, then return here to sign in.");
       } else {
-        const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: authError } = await client.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
       }
     } catch (err) {
@@ -63,10 +69,18 @@ export default function AuthGate() {
   }
 
   async function signOut() {
+    if (!supabase) return;
     const { error: authError } = await supabase.auth.signOut();
     if (authError) window.alert(authError.message);
   }
 
+  if (!hasSupabaseConfig) return (
+    <div className="auth-screen"><div className="auth-card">
+      <div className="auth-brand"><span className="auth-brand-mark">M</span><span>Moto<span>Track</span></span></div>
+      <h1 style={{ marginTop: 28 }}>Setup required</h1>
+      <p className="auth-description">MotoTrack cannot read its Supabase connection settings. In the project root, check your <code>.env.local</code> file has <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> set to your project values, then restart <code>npm run dev</code>.</p>
+    </div></div>
+  );
   if (checking) return <div className="auth-loading">Loading MotoTrack…</div>;
   if (session) return (
     <>
