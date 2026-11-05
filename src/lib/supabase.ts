@@ -1,11 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Read the public Supabase connection settings from the local Vite environment.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Vite exposes only VITE_-prefixed variables to the browser.
+// A missing configuration should display a useful setup screen, not crash the app at import time.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in .env.local.");
-}
+export const hasSupabaseConfig = Boolean(
+  supabaseUrl && supabaseKey && /^https:\/\/.+\.supabase\.co\/?$/.test(supabaseUrl),
+);
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = hasSupabaseConfig
+  ? createClient(supabaseUrl!, supabaseKey!)
+  : null;
