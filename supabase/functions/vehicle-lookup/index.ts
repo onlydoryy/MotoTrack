@@ -1,18 +1,11 @@
 // Server-side registration lookup. Deploy with Supabase; set REGCHECK_USERNAME and REGCHECK_API_KEY as secrets.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withSupabase } from "jsr:@supabase/server@^1";
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
 
-Deno.serve(async (req) => {
+export default {
+  fetch: withSupabase({ auth: "user" }, async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
-  const url = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!token || !url || !anonKey) return json({ error: "Unauthorised" }, 401);
-  const client = createClient(url, anonKey);
-  const { data: { user }, error: authError } = await client.auth.getUser(token);
-  if (authError || !user) return json({ error: "Unauthorised" }, 401);
-
   let body: { registration?: unknown };
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
   const plate = typeof body.registration === "string"
@@ -54,4 +47,5 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: "Vehicle lookup failed" }, 502);
   }
-});
+  }),
+};
