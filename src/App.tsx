@@ -42,6 +42,12 @@ type VehicleDocument = {
   id: string;
   name: string;
   dateAdded: string;
+  folderId?: string | null;
+};
+
+type DocumentFolder = {
+  id: string;
+  name: string;
 };
 
 // Complete saved vehicle shape, including service history and document metadata.
@@ -73,6 +79,7 @@ type Vehicle = {
   favorite?: boolean;
   serviceRecords: ServiceRecord[];
   documents: VehicleDocument[];
+  documentFolders: DocumentFolder[];
 };
 
 // Demo vehicles shown the first time the app is opened without saved data.
@@ -104,6 +111,8 @@ const starterVehicles: Vehicle[] = [
     dateAdded: 1,
     serviceRecords: [],
     documents: [],
+    documentFolders: [],
+    documentFolders: [],
   },
   {
     id: "demo-bike",
@@ -179,7 +188,8 @@ function loadVehicles(): Vehicle[] {
         notes: record.notes ?? "",
         receipts: record.receipts ?? [],
       })),
-      documents: vehicle.documents ?? [],
+      documents: (vehicle.documents ?? []).map((doc) => ({ ...doc, folderId: doc.folderId ?? null })),
+      documentFolders: vehicle.documentFolders ?? [],
     })) as Vehicle[];
   } catch {
     return starterVehicles;
@@ -295,6 +305,7 @@ function App() {
   const [expiryEdit, setExpiryEdit] = useState<{ vehicleId: string; field: "taxExpiry" | "testExpiry"; value: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("info");
+  const [openDocumentFolder, setOpenDocumentFolder] = useState<{ vehicleId: string; folderId: string | null } | null>(null);
   const [filter, setFilter] = useState("All");
   const [customTypes, setCustomTypes] = useState<VehicleType[]>(["Car", "Motorcycle"]);
   const [sort, setSort] = useState("newest");
@@ -444,6 +455,7 @@ function App() {
       dateAdded: Date.now(),
       serviceRecords: [],
       documents: [],
+      documentFolders: [],
     };
 
     setVehicles((current) => [...current, newVehicle]);
@@ -707,29 +719,102 @@ function App() {
     setShowServiceForm(false);
   }
 
-  // Record the names of uploaded vehicle documents (full document storage comes later).
-  // Record the names of uploaded vehicle documents (full document storage comes later).
+  // The current Documents tab stores filenames/metadata, not the underlying file bytes.
+  // A folder ID of null means Unfiled, including documents from older versions.
   function addDocument(event: ChangeEvent<HTMLInputElement>) {
     if (!selectedVehicle) return;
-
     const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
     if (!files.length) return;
-
-    const newDocuments = files.map((file) => ({
+    const folderId = openDocumentFolder?.vehicleId === selectedVehicle.id ? openDocumentFolder.folderId : null;
+    const newDocuments: VehicleDocument[] = files.map((file) => ({
       id: crypto.randomUUID(),
       name: file.name,
       dateAdded: new Date().toISOString().slice(0, 10),
+      folderId,
     }));
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documents: [...newDocuments, ...vehicle.documents] }
+        : vehicle,
+    ));
+  }
 
-    setVehicles((current) =>
-      current.map((vehicle) =>
-        vehicle.id === selectedVehicle.id
-          ? { ...vehicle, documents: [...newDocuments, ...vehicle.documents] }
-          : vehicle,
-      ),
-    );
+  function createDocumentFolder() {
+    if (!selectedVehicle) return;
+    const entered = window.prompt("Folder name (for example, NCT Reports):");
+    if (entered === null) return;
+    const name = entered.trim();
+    if (!name) { window.alert("Enter a folder name."); return; }
+    if (name.length > 70) { window.alert("Folder names must be 70 characters or fewer."); return; }
+    if (selectedVehicle.documentFolders.some((folder) => folder.name.toLowerCase() === name.toLowerCase())) {
+      window.alert("A folder with that name already exists for this vehicle."); return;
+    }
+    const newFolder: DocumentFolder = { id: crypto.randomUUID(), name };
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documentFolders: [...vehicle.documentFolders, newFolder] }
+        : vehicle,
+    ));
+    setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: newFolder.id });
+  }
 
-    event.target.value = "";
+  function renameDocumentFolder(folderId: string) {
+    if (!selectedVehicle) return;
+    const folder = selectedVehicle.documentFolders.find((item) => item.id === folderId);
+    if (!folder) return;
+    const entered = window.prompt("Rename folder:", folder.name);
+    if (entered === null) return;
+    const name = entered.trim();
+    if (!name || name.length > 70) { window.alert("Enter a name of up to 70 characters."); return; }
+    if (selectedVehicle.documentFolders.some((item) =>
+      item.id !== folderId && item.name.toLowerCase() === name.toLowerCase())) {
+      window.alert("Another folder already has that name."); return;
+    }
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documentFolders: vehicle.documentFolders.map((item) =>
+            item.id === folderId ? { ...item, name } : item) }
+        : vehicle,
+    ));
+  }
+
+  function deleteDocumentFolder(folderId: string) {
+    if (!selectedVehicle) return;
+    const folder = selectedVehicle.documentFolders.find((item) => item.id === folderId);
+    if (!folder) return;
+    const count = selectedVehicle.documents.filter((doc) => doc.folderId === folderId).length;
+    if (!window.confirm(`Delete folder "${folder.name}"? ${count ? `${count} document record(s) will move to Unfiled.` : "The folder is empty."} No document records will be deleted.`)) return;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? {
+            ...vehicle,
+            documentFolders: vehicle.documentFolders.filter((item) => item.id !== folderId),
+            documents: vehicle.documents.map((doc) => doc.folderId === folderId ? { ...doc, folderId: null } : doc),
+          }
+        : vehicle,
+    ));
+    setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: null });
+  }
+
+  function moveDocument(documentId: string, folderId: string | null) {
+    if (!selectedVehicle) return;
+    if (folderId && !selectedVehicle.documentFolders.some((folder) => folder.id === folderId)) return;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documents: vehicle.documents.map((doc) =>
+            doc.id === documentId ? { ...doc, folderId } : doc) }
+        : vehicle,
+    ));
+  }
+
+  function deleteDocument(documentId: string) {
+    if (!selectedVehicle || !window.confirm("Remove this document entry?")) return;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documents: vehicle.documents.filter((doc) => doc.id !== documentId) }
+        : vehicle,
+    ));
   }
 
   // Confirm before deleting a vehicle and its associated local history.
@@ -1125,45 +1210,89 @@ function App() {
               </div>
             )}
 
-            {/* Paperwork tab: currently stores document names, not file contents. */}
-            {activeTab === "documents" && (
-              <div className="detail-panel">
-                <div className="section-heading">
-                  <div>
-                    <h2>Documents</h2>
-                    <p>Keep track of receipts, invoices and vehicle paperwork.</p>
+            {/* Per-vehicle document filing. File contents are not yet uploaded/stored. */}
+            {activeTab === "documents" && (() => {
+              const folders = selectedVehicle.documentFolders ?? [];
+              const documents = selectedVehicle.documents ?? [];
+              const requestedFolderId = openDocumentFolder?.vehicleId === selectedVehicle.id
+                ? openDocumentFolder.folderId : null;
+              const currentFolderId = requestedFolderId && folders.some((folder) => folder.id === requestedFolderId)
+                ? requestedFolderId : null;
+              const currentFolder = folders.find((folder) => folder.id === currentFolderId);
+              const visibleDocuments = documents.filter((doc) => (doc.folderId ?? null) === currentFolderId);
+              const unfiledCount = documents.filter((doc) => !doc.folderId || !folders.some((folder) => folder.id === doc.folderId)).length;
+              return (
+                <div className="detail-panel document-organiser">
+                  <div className="section-heading">
+                    <div>
+                      <h2>Documents</h2>
+                      <p>Create your own folders to organise paperwork for this vehicle.</p>
+                    </div>
+                    <div className="documents-toolbar">
+                      <button type="button" className="button button-secondary" onClick={createDocumentFolder}>＋ New folder</button>
+                      <label className="button button-primary upload-doc-button">
+                        ＋ Add document
+                        <input type="file" multiple onChange={addDocument} />
+                      </label>
+                    </div>
                   </div>
-                  <label className="button button-primary upload-doc-button">
-                    ＋ Add document
-                    <input type="file" multiple onChange={addDocument} />
-                  </label>
-                </div>
-
-                <p className="document-note">
-                  This first version records document names only. File storage and previews can be added with the backend.
-                </p>
-
-                {selectedVehicle.documents.length ? (
-                  <div className="record-list">
-                    {selectedVehicle.documents.map((document) => (
-                      <div className="record-row" key={document.id}>
-                        <div className="record-icon">▤</div>
-                        <div className="record-main">
-                          <strong>{document.name}</strong>
-                          <span>Added {document.dateAdded}</span>
+                  <p className="document-note">Currently MotoTrack saves document names only, not the actual files. Keep your originals until file storage is introduced.</p>
+                  <div className="document-folder-nav">
+                    <button type="button" className={`document-folder-tile ${currentFolderId === null ? "is-active" : ""}`}
+                      onClick={() => setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: null })}>
+                      <span className="folder-symbol">▤</span><strong>Unfiled</strong><small>{unfiledCount} document(s)</small>
+                    </button>
+                    {folders.map((folder) => (
+                      <div className={`document-folder-tile ${currentFolderId === folder.id ? "is-active" : ""}`} key={folder.id}>
+                        <button type="button" className="document-folder-open" onClick={() => setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: folder.id })}>
+                          <span className="folder-symbol">▣</span>
+                          <strong>{folder.name}</strong>
+                          <small>{documents.filter((doc) => doc.folderId === folder.id).length} document(s)</small>
+                        </button>
+                        <div className="document-folder-actions">
+                          <button type="button" onClick={() => renameDocumentFolder(folder.id)} aria-label={`Rename ${folder.name}`}>Rename</button>
+                          <button type="button" onClick={() => deleteDocumentFolder(folder.id)} aria-label={`Delete ${folder.name}`}>Delete</button>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="empty-state">
-                    <div className="empty-icon">▧</div>
-                    <h3>No documents added</h3>
-                    <p>Add a receipt, invoice or other document to keep a record of it here.</p>
+                  <div className="document-folder-heading">
+                    <h3>{currentFolder?.name ?? "Unfiled documents"}</h3>
+                    <span>{visibleDocuments.length} document(s)</span>
                   </div>
-                )}
-              </div>
-            )}
+                  {visibleDocuments.length ? (
+                    <div className="record-list">
+                      {visibleDocuments.map((doc) => (
+                        <div className="record-row document-entry" key={doc.id}>
+                          <div className="record-icon">▤</div>
+                          <div className="record-main">
+                            <strong>{doc.name}</strong>
+                            <span>Added {doc.dateAdded} · Filename only</span>
+                          </div>
+                          <div className="document-entry-actions">
+                            <label>
+                              <span>Move to</span>
+                              <select aria-label={`Move ${doc.name} to folder`} value={doc.folderId && folders.some((folder) => folder.id === doc.folderId) ? doc.folderId : ""}
+                                onChange={(event) => moveDocument(doc.id, event.target.value || null)}>
+                                <option value="">Unfiled</option>
+                                {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+                              </select>
+                            </label>
+                            <button type="button" className="document-remove" onClick={() => deleteDocument(doc.id)}>Remove</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-state">
+                      <div className="empty-icon">▧</div>
+                      <h3>{currentFolderId ? "This folder is empty" : "No unfiled documents"}</h3>
+                      <p>Add documents here, or move existing entries into this folder using the Move to menu.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
         ) : (
           <section className="page-content">
