@@ -112,7 +112,6 @@ const starterVehicles: Vehicle[] = [
     serviceRecords: [],
     documents: [],
     documentFolders: [],
-    documentFolders: [],
   },
   {
     id: "demo-bike",
@@ -141,6 +140,7 @@ const starterVehicles: Vehicle[] = [
     dateAdded: 2,
     serviceRecords: [],
     documents: [],
+    documentFolders: [],
   },
 ];
 
@@ -1219,7 +1219,9 @@ function App() {
               const currentFolderId = requestedFolderId && folders.some((folder) => folder.id === requestedFolderId)
                 ? requestedFolderId : null;
               const currentFolder = folders.find((folder) => folder.id === currentFolderId);
-              const visibleDocuments = documents.filter((doc) => (doc.folderId ?? null) === currentFolderId);
+              const visibleDocuments = documents.filter((doc) => currentFolderId
+                ? doc.folderId === currentFolderId
+                : !doc.folderId || !folders.some((folder) => folder.id === doc.folderId));
               const unfiledCount = documents.filter((doc) => !doc.folderId || !folders.some((folder) => folder.id === doc.folderId)).length;
               return (
                 <div className="detail-panel document-organiser">
