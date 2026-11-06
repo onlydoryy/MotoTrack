@@ -19,3 +19,13 @@ MotoTrack's **Add Vehicle** screen can now request an Irish number-plate lookup 
 
 ## Updating an existing deployment
 When the Edge Function source changes, redeploy `vehicle-lookup` from the GitHub feature branch in Supabase. Reload MotoTrack after pulling the branch. Existing localStorage vehicle records are migrated with empty strings for the new fields; no lookup is silently triggered for stored vehicles.
+
+## NCT and motor tax checks
+The Vehicle Info tab has a dedicated NCT & Motor Tax section with official external links. For cars, the NCT checker opens https://www.ncts.ie/check-nct-due-date/; motor tax checks open https://www.motortax.ie/OMT/. The user enters the registration on the official website, then optionally saves the expiry date manually in MotoTrack. The app does not scrape these sites or claim the locally stored date is a real-time legal status. Commercial vehicles and motorcycles may require different roadworthiness-test rules, so no car NCT link is shown for those categories.
+
+### Quick smoke test
+- Open Vehicle Info for a car; check that the two official links open.
+- Edit both expiry dates, save, and refresh; the new dates should remain and summary indicators update.
+- Cancel an edit and confirm saved dates are unchanged.
+- Test a motorcycle: motor tax link remains available, and car NCT link is absent.
+- Confirm older records retain their saved dates. No API credits should be used by clicking the new status links.
