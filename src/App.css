@@ -1698,3 +1698,29 @@ input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
 .status-date-editor input { width: 100%; min-width: 0; background: #10171f; color: #e0e7ed; border: 1px solid #3a4653; border-radius: 6px; padding: 8px; font: inherit; }
 .status-editor-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .status-editor-actions .button { padding: 7px 13px; }
+
+/* Per-vehicle document organiser */
+.documents-toolbar { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.document-folder-nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 12px; margin: 19px 0 24px; }
+.document-folder-tile { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 0; min-height: 115px; padding: 14px; border: 1px solid #34414e; border-radius: 10px; background: #10171f; color: #e0e7ed; font: inherit; text-align: left; }
+button.document-folder-tile { cursor: pointer; }
+.document-folder-tile.is-active { border-color: #c9e58c; background: #1c2925; }
+.document-folder-tile .folder-symbol { font-size: 23px; line-height: 1; color: #c9e58c; }
+.document-folder-tile strong, .document-folder-open strong { overflow-wrap: anywhere; font-size: 12px; }
+.document-folder-tile small, .document-folder-open small { color: #91a0ae; font-size: 10px; }
+.document-folder-open { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; flex: 1; padding: 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.document-folder-actions { display: flex; gap: 12px; margin-top: 8px; }
+.document-folder-actions button, .document-remove { padding: 0; border: 0; background: none; color: #c9e58c; font: inherit; font-size: 10px; cursor: pointer; }
+.document-folder-actions button:hover, .document-remove:hover { text-decoration: underline; }
+.document-folder-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 13px; }
+.document-folder-heading h3 { margin: 0; font-size: 15px; }
+.document-folder-heading > span { font-size: 11px; color: #91a0ae; }
+.document-entry { flex-wrap: wrap; gap: 10px; }
+.document-entry-actions { display: flex; align-items: end; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+.document-entry-actions label { display: flex; flex-direction: column; gap: 5px; font-size: 10px; color: #91a0ae; }
+.document-entry-actions select { max-width: 190px; min-width: 130px; padding: 7px; color: #e0e7ed; border: 1px solid #3a4653; border-radius: 6px; background: #10171f; }
+@media (max-width: 650px) {
+  .documents-toolbar { width: 100%; }
+  .documents-toolbar .button { flex: 1; text-align: center; }
+  .document-entry-actions { width: 100%; margin-left: 0; }
+}
