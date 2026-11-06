@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import "./App.css";
+import { supabase } from "./lib/supabase";
 
 // Supported vehicle categories and the three tabs on a vehicle profile.
 type VehicleType = "Car" | "Motorcycle" | "Commercial" | "Other";
@@ -267,6 +268,9 @@ function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [registrationLookup, setRegistrationLookup] = useState("");
   const [showManualVehicleForm, setShowManualVehicleForm] = useState(false);
+  const [lookupResult, setLookupResult] = useState<{ make: string; model: string; year: string; colour: string } | null>(null);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupError, setLookupError] = useState("");
   const [search, setSearch] = useState("");
   const [serviceKind, setServiceKind] = useState<ServiceKind>("Service");
   const [showServiceForm, setShowServiceForm] = useState(false);
@@ -330,6 +334,42 @@ function App() {
     return result;
   }, [vehicles, filter, customTypes, sort, search]);
 
+  // Registration lookups run through a Supabase Edge Function: never expose provider credentials in Vite.
+  async function lookUpRegistration() {
+    setLookupError("");
+    setLookupResult(null);
+    const plate = registrationLookup.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!/^[0-9]{2,3}[A-Z]{1,2}[0-9]{1,6}$/.test(plate)) {
+      setLookupError("Please enter a valid Irish registration, for example 08-C-12345.");
+      return;
+    }
+    if (!supabase) {
+      setLookupError("Supabase is not configured. You can still enter the vehicle manually.");
+      return;
+    }
+    setLookupBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vehicle-lookup", {
+        body: { registration: plate },
+      });
+      if (error) throw error;
+      if (!data || typeof data !== "object" || !data.make || !data.model) {
+        throw new Error("Vehicle details were not returned.");
+      }
+      setLookupResult({
+        make: String(data.make),
+        model: String(data.model),
+        year: String(data.year ?? ""),
+        colour: String(data.colour ?? ""),
+      });
+      setShowManualVehicleForm(true); // Let the user review/edit every field before saving.
+    } catch {
+      setLookupError("Lookup unavailable or vehicle not found. Please enter the details manually.");
+    } finally {
+      setLookupBusy(false);
+    }
+  }
+
   // Read the add-vehicle form and create a new vehicle record.
   function addVehicle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -363,6 +403,8 @@ function App() {
     setVehiclePhoto("");
     setRegistrationLookup("");
     setShowManualVehicleForm(false);
+    setLookupResult(null);
+    setLookupError("");
   }
 
   // Toggle a favourite; favourites always appear before other vehicles.
@@ -1182,16 +1224,11 @@ function App() {
                     autoComplete="off"
                   />
                 </label>
-                <a
-                  className="button button-primary registration-lookup-button"
-                  href="https://www.vehicleservices.gov.ie/cmv/search-result"
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setRegistrationLookup((current) => current.trim().toUpperCase())}
-                >
-                  Open official vehicle lookup ↗
-                </a>
-                <p className="registration-lookup-note">The official site opens in a new tab. Automatic data import is not available yet, so review the results there and enter them into MotoTrack.</p>
+                <button type="button" className="button button-primary registration-lookup-button" disabled={lookupBusy} onClick={lookUpRegistration}>
+                  {lookupBusy ? "Looking up vehicle…" : "Look up vehicle"}
+                </button>
+                {lookupError && <p className="registration-lookup-note" role="alert">{lookupError}</p>}
+                <p className="registration-lookup-note">Auto-fill uses a vehicle-data provider. Check the details before saving; tax and NCT dates are entered manually.</p>
                 <button type="button" className="manual-entry-link" onClick={() => setShowManualVehicleForm(true)}>
                   Enter vehicle details manually →
                 </button>
@@ -1201,6 +1238,7 @@ function App() {
                 <button type="button" className="manual-entry-link back-to-lookup" onClick={() => setShowManualVehicleForm(false)}>
                   ← Back to registration lookup
                 </button>
+                {lookupResult && <p className="registration-lookup-note">Details found. Review them, add mileage and any missing information, then save.</p>}
                 <form onSubmit={addVehicle}>
               <label className="field">
                 <span>Vehicle type *</span>
@@ -1215,19 +1253,19 @@ function App() {
               <div className="form-two-col">
                 <label className="field">
                   <span>Make *</span>
-                  <input name="make" required placeholder="e.g. BMW" />
+                  <input name="make" required key={`make-${registrationLookup}-${lookupResult?.make ?? ""}`} defaultValue={lookupResult?.make ?? ""} placeholder="e.g. BMW" />
                 </label>
                 <label className="field">
                   <span>Model *</span>
-                  <input name="model" required placeholder="e.g. 320d" />
+                  <input name="model" required key={`model-${registrationLookup}-${lookupResult?.model ?? ""}`} defaultValue={lookupResult?.model ?? ""} placeholder="e.g. 320d" />
                 </label>
                 <label className="field">
                   <span>Year</span>
-                  <input name="year" type="number" min="1900" max="2100" placeholder="e.g. 2018" />
+                  <input name="year" type="number" min="1900" max="2100" defaultValue={lookupResult?.year ?? ""} placeholder="e.g. 2018" />
                 </label>
                 <label className="field">
                   <span>Colour</span>
-                  <input name="colour" placeholder="e.g. Black" />
+                  <input name="colour" defaultValue={lookupResult?.colour ?? ""} placeholder="e.g. Black" />
                 </label>
                 <label className="field">
                   <span>Registration</span>
