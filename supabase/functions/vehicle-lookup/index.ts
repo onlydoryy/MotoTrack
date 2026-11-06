@@ -1,4 +1,4 @@
-// Server-side registration lookup. Deploy with Supabase; set REGCHECK_USERNAME and REGCHECK_API_KEY as secrets.
+// Server-side registration lookup. Deploy with Supabase; set REGCHECK_USERNAME as an Edge Function secret.
 import { withSupabase } from "jsr:@supabase/server@^1";
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
@@ -36,13 +36,30 @@ export default {
     const field = (value: unknown) => typeof value === "string" ? value :
       value && typeof value === "object" && "CurrentTextValue" in value
         ? String(value.CurrentTextValue ?? "") : "";
+    const known = (value: unknown) => {
+      const result = field(value).trim();
+      return /^(?:unknown|n\/a|not available|null|undefined)$/i.test(result) ? "" : result;
+    };
+    const positiveInteger = (value: unknown) => {
+      const text = known(value).replace(/\s*cc$/i, "");
+      return /^\d+$/.test(text) && Number(text) > 0 ? text : "";
+    };
     const make = field(raw.MakeDescription) || field(raw.CarMake);
     const model = field(raw.ModelDescription) || field(raw.CarModel);
     if (!make || !model) return json({ error: "No vehicle details found" }, 404);
     return json({
       make, model,
       year: field(raw.RegistrationYear) || field(raw.ManufactureYearFrom),
-      colour: field(raw.Colour) || field(raw.Color),
+      colour: known(raw.Colour) || known(raw.Color),
+      engineSizeCc: positiveInteger(raw.EngineSize),
+      fuelType: known(raw.FuelType),
+      transmission: known(raw.Transmission),
+      bodyStyle: known(raw.BodyStyle),
+      numberOfDoors: positiveInteger(raw.NumberOfDoors),
+      numberOfSeats: positiveInteger(raw.NumberOfSeats),
+      vin: known(raw.VIN) || known(raw.VechileIdentificationNumber),
+      engineNumber: known(raw.Engine) || known(raw.EngineNumber),
+      registrationCounty: known(raw.County),
     });
   } catch {
     return json({ error: "Vehicle lookup failed" }, 502);
