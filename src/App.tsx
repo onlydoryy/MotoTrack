@@ -292,7 +292,7 @@ function App() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(loadVehicles);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [infoDraft, setInfoDraft] = useState<VehicleInfoDraft | null>(null);
-  const [complianceDraft, setComplianceDraft] = useState<{ vehicleId: string; taxExpiry: string; testExpiry: string } | null>(null);
+  const [expiryEdit, setExpiryEdit] = useState<{ vehicleId: string; field: "taxExpiry" | "testExpiry"; value: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [filter, setFilter] = useState("All");
@@ -506,16 +506,36 @@ function App() {
     setIsEditingInfo(false);
   }
 
-  // Save compliance dates explicitly; official checkers do not send data to MotoTrack.
-  function saveComplianceDates(event: FormEvent<HTMLFormElement>) {
+  // Update one existing status card without changing the other expiry date.
+  function saveExpiryDate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedVehicle || !complianceDraft || complianceDraft.vehicleId !== selectedVehicle.id) return;
+    if (!expiryEdit || !selectedVehicle || expiryEdit.vehicleId !== selectedVehicle.id) return;
+    const { vehicleId, field, value } = expiryEdit;
     setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === complianceDraft.vehicleId
-        ? { ...vehicle, taxExpiry: complianceDraft.taxExpiry, testExpiry: complianceDraft.testExpiry }
-        : vehicle,
+      vehicle.id === vehicleId ? { ...vehicle, [field]: value } : vehicle,
     ));
-    setComplianceDraft(null);
+    setExpiryEdit(null);
+  }
+
+  function expiryEditor(field: "taxExpiry" | "testExpiry") {
+    if (!selectedVehicle) return null;
+    const editing = expiryEdit?.vehicleId === selectedVehicle.id && expiryEdit.field === field;
+    return editing ? (
+      <form className="status-date-editor" onSubmit={saveExpiryDate}>
+        <label>
+          <span>Recorded expiry date</span>
+          <input type="date" value={expiryEdit.value} onChange={(event) => setExpiryEdit((old) => old ? { ...old, value: event.target.value } : old)} />
+        </label>
+        <div className="status-editor-actions">
+          <button type="submit" className="button button-primary">Save</button>
+          <button type="button" className="button button-secondary" onClick={() => setExpiryEdit(null)}>Cancel</button>
+        </div>
+      </form>
+    ) : (
+      <button type="button" className="status-card-edit" onClick={() => setExpiryEdit({
+        vehicleId: selectedVehicle.id, field, value: selectedVehicle[field] || "",
+      })}>✎ Edit date</button>
+    );
   }
 
   // Update one field in the unsaved Vehicle Info draft.
@@ -798,6 +818,10 @@ function App() {
                     ? `Expiry: ${selectedVehicle.taxExpiry}`
                     : "Add an expiry date in Vehicle Info"}
                 </span>
+                <div className="status-card-actions">
+                  {expiryEditor("taxExpiry")}
+                  <a href="https://www.motortax.ie/OMT/" target="_blank" rel="noopener noreferrer" className="status-card-link">Check official site ↗</a>
+                </div>
               </div>
 
               <div className="quick-stat">
@@ -828,6 +852,15 @@ function App() {
                         ? `Expiry: ${selectedVehicle.testExpiry}`
                         : "Add a test expiry date in Vehicle Info"}
                     </span>
+                    <div className="status-card-actions">
+                      {expiryEditor("testExpiry")}
+                      {selectedVehicle.type === "Car" && (
+                        <a href="https://www.ncts.ie/check-nct-due-date/" target="_blank" rel="noopener noreferrer" className="status-card-link">Check official site ↗</a>
+                      )}
+                      {selectedVehicle.type === "Commercial" && (
+                        <span className="stat-foot">Check CVRT with the relevant authorised test service.</span>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -926,64 +959,6 @@ function App() {
               </div>
             )}
 
-
-            {/* Official status links open separately; dates are user-maintained and not live-verified. */}
-            {activeTab === "info" && (
-              <section className="detail-panel compliance-panel" aria-labelledby="compliance-heading">
-                <div className="section-heading">
-                  <div>
-                    <h2 id="compliance-heading">NCT &amp; Motor Tax</h2>
-                    <p>Check the official websites and record the expiry dates yourself.</p>
-                  </div>
-                  {(!complianceDraft || complianceDraft.vehicleId !== selectedVehicle.id) && (
-                    <button type="button" className="button button-secondary" onClick={() => setComplianceDraft({
-                      vehicleId: selectedVehicle.id,
-                      taxExpiry: selectedVehicle.taxExpiry,
-                      testExpiry: selectedVehicle.testExpiry,
-                    })}>✎ Edit expiry dates</button>
-                  )}
-                </div>
-                {complianceDraft?.vehicleId === selectedVehicle.id ? (
-                  <form onSubmit={saveComplianceDates}>
-                    <div className="info-grid">
-                      <label className="field"><span>NCT / test expiry</span>
-                        <input type="date" value={complianceDraft.testExpiry} onChange={(event) => setComplianceDraft((old) => old && ({ ...old, testExpiry: event.target.value }))} />
-                      </label>
-                      <label className="field"><span>Motor tax expiry</span>
-                        <input type="date" value={complianceDraft.taxExpiry} onChange={(event) => setComplianceDraft((old) => old && ({ ...old, taxExpiry: event.target.value }))} />
-                      </label>
-                    </div>
-                    <div className="panel-footer info-edit-footer">
-                      <span className="save-hint">Dates are manually recorded, not verified by MotoTrack.</span>
-                      <div className="info-actions">
-                        <button type="button" className="button button-secondary" onClick={() => setComplianceDraft(null)}>Cancel</button>
-                        <button type="submit" className="button button-primary">Save expiry dates</button>
-                      </div>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="compliance-check-grid">
-                    <div className="compliance-check-card">
-                      <strong>NCT / roadworthiness test</strong>
-                      <span className={`status-line ${expiryStatus(selectedVehicle.testExpiry).className}`}>{expiryStatus(selectedVehicle.testExpiry).label}</span>
-                      <span>Recorded expiry: {selectedVehicle.testExpiry || "Not recorded"}</span>
-                      {selectedVehicle.type === "Car" ? (
-                        <a href="https://www.ncts.ie/check-nct-due-date/" target="_blank" rel="noopener noreferrer" className="button button-secondary">Check NCT on official website ↗</a>
-                      ) : (
-                        <span className="save-hint">NCT eligibility depends on vehicle type; use the relevant vehicle test service.</span>
-                      )}
-                    </div>
-                    <div className="compliance-check-card">
-                      <strong>Motor tax</strong>
-                      <span className={`status-line ${expiryStatus(selectedVehicle.taxExpiry).className}`}>{expiryStatus(selectedVehicle.taxExpiry).label}</span>
-                      <span>Recorded expiry: {selectedVehicle.taxExpiry || "Not recorded"}</span>
-                      <a href="https://www.motortax.ie/OMT/" target="_blank" rel="noopener noreferrer" className="button button-secondary">Check motor tax on official website ↗</a>
-                    </div>
-                  </div>
-                )}
-                <p className="compliance-disclaimer">Official websites open in a separate tab. MotoTrack does not automatically import their results or confirm live legal status. Enter the verified expiry dates above.</p>
-              </section>
-            )}
 
             {/* Service/repair form and expandable history records for the selected vehicle. */}
             {activeTab === "service" && (
