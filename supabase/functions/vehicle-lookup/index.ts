@@ -19,16 +19,27 @@ Deno.serve(async (req) => {
     ? body.registration.toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
   if (!/^[0-9]{2,3}[A-Z]{1,2}[0-9]{1,6}$/.test(plate)) return json({ error: "Invalid Irish registration" }, 400);
   const username = Deno.env.get("REGCHECK_USERNAME");
-  const apiKey = Deno.env.get("REGCHECK_API_KEY");
-  if (!username || !apiKey) return json({ error: "Lookup not configured" }, 503);
+  if (!username) return json({ error: "Lookup not configured" }, 503);
 
   try {
-    const upstream = await fetch(
-      "https://www.regcheck.org.uk/api/json.aspx/CheckIreland/" + encodeURIComponent(plate),
-      { headers: { Authorization: "Basic " + btoa(username + ":" + apiKey) }, signal: AbortSignal.timeout(12000) },
-    );
-    if (!upstream.ok) return json({ error: "Lookup unavailable or not found" }, 502);
-    const raw = await upstream.json();
+    // The documented CheckIreland HTTP/XML endpoint only requires a username.
+    // Keep it on the server so the paid account cannot be used directly from browsers.
+    const endpoint = new URL("https://www.carregistrationapi.ie/api/reg.asmx/CheckIreland");
+    endpoint.searchParams.set("RegistrationNumber", plate);
+    endpoint.searchParams.set("username", username);
+    const upstream = await fetch(endpoint, { signal: AbortSignal.timeout(12000) });
+    if (!upstream.ok) return json({ error: "Lookup unavailable" }, 502);
+    const xml = await upstream.text();
+    const match = xml.match(/<vehicleJson(?:\\s[^>]*)?>([\\s\\S]*?)<\\/vehicleJson>/i);
+    if (!match) return json({ error: "Vehicle not found or invalid provider response" }, 404);
+    let embedded = match[1].trim();
+    if (embedded.startsWith("<![CDATA[") && embedded.endsWith("]]>")) {
+      embedded = embedded.slice(9, -3);
+    } else {
+      embedded = embedded.replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+    }
+    const raw = JSON.parse(embedded);
     const field = (value: unknown) => typeof value === "string" ? value :
       value && typeof value === "object" && "CurrentTextValue" in value
         ? String(value.CurrentTextValue ?? "") : "";
