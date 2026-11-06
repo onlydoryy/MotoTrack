@@ -29,3 +29,15 @@ The existing Motor Tax and NCT status tiles above Vehicle Info contain compact o
 - Cancel an edit and confirm saved dates are unchanged.
 - Test a motorcycle: motor tax link remains available, and car NCT link is absent.
 - Confirm older records retain their saved dates. No API credits should be used by clicking the new status links.
+
+## Organising vehicle documents
+Each vehicle has independent user-defined document folders (for example, **NCT Reports**, **Insurance** or **Invoices**). Create, rename or delete a folder in the Documents tab; deleting a folder moves all its document records to **Unfiled** instead of deleting them. Each filename can be moved between folders with the **Move to** menu. Unfiled holds all previously saved documents, so older records remain visible. A folder and its contents are saved in the existing browser localStorage vehicle record.
+
+**Important:** As before, the Documents tab stores only document names and dates, **not the underlying PDF/image data**. Adding a file does not back up its contents. Supabase Storage file upload/download and related access policies will be a future feature.
+
+### Folder smoke test
+- Create a folder called NCT Reports and add a document name while inside it.
+- Create another folder; move a document from NCT Reports to the other folder.
+- Rename a folder, refresh, and verify names, membership and existing vehicles.
+- Delete a folder containing entries; confirm its entries reappear under Unfiled.
+- Remove an entry and confirm other document records remain intact.
