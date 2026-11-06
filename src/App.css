@@ -1688,15 +1688,13 @@ input::placeholder, textarea::placeholder { color: #93a1af; opacity: 1; }
 .maintenance-group .maintenance-options { padding: 8px; }
 @media (max-width: 540px) { .maintenance-group-toggle { grid-template-columns: minmax(0,1fr) 20px; gap: 7px; } .maintenance-group-summary { grid-column: 1; grid-row: 2; text-align: left; } .maintenance-group-chevron { grid-column: 2; grid-row: 1 / 3; } }
 
-/* Official status checks are informational; dates are explicitly user-maintained. */
-.compliance-panel { margin-top: 16px; }
-.compliance-check-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.compliance-check-card { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; border-radius: 9px; border: 1px solid #2c3742; background: #10171f; }
-.compliance-check-card > strong { font-size: 14px; color: #e0e7ed; }
-.compliance-check-card > span { font-size: 12px; color: #b5c1cb; }
-.compliance-check-card .button { margin-top: auto; text-align: center; }
-.compliance-disclaimer { margin: 14px 0 0; color: #91a0ae; font-size: 11px; line-height: 1.6; }
-@media (max-width: 650px) {
-  .compliance-check-grid { grid-template-columns: 1fr; }
-  .compliance-check-card .button { width: 100%; }
-}
+
+/* Compact official check and date-edit actions inside the original status tiles. */
+.status-card-actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 11px; }
+.status-card-edit, .status-card-link { background: none; border: 0; padding: 3px 0; color: #c9e58c; font: inherit; font-size: 10px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.status-card-edit:hover, .status-card-link:hover { color: #e0f6b0; text-decoration: underline; }
+.status-date-editor { width: 100%; display: flex; flex-direction: column; gap: 9px; }
+.status-date-editor label { display: flex; flex-direction: column; gap: 5px; color: #91a0ae; font-size: 10px; }
+.status-date-editor input { width: 100%; min-width: 0; background: #10171f; color: #e0e7ed; border: 1px solid #3a4653; border-radius: 6px; padding: 8px; font: inherit; }
+.status-editor-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.status-editor-actions .button { padding: 7px 13px; }
