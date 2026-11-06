@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const upstream = await fetch(endpoint, { signal: AbortSignal.timeout(12000) });
     if (!upstream.ok) return json({ error: "Lookup unavailable" }, 502);
     const xml = await upstream.text();
-    const match = xml.match(/<vehicleJson(?:\\s[^>]*)?>([\\s\\S]*?)<\\/vehicleJson>/i);
+    const match = xml.match(/<vehicleJson(?:\s[^>]*)?>([\s\S]*?)<\/vehicleJson>/i);
     if (!match) return json({ error: "Vehicle not found or invalid provider response" }, 404);
     let embedded = match[1].trim();
     if (embedded.startsWith("<![CDATA[") && embedded.endsWith("]]>")) {
