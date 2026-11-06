@@ -53,6 +53,14 @@ type Vehicle = {
   year: string;
   registration: string;
   vin: string;
+  engineSizeCc: string;
+  fuelType: string;
+  transmission: string;
+  bodyStyle: string;
+  numberOfDoors: string;
+  numberOfSeats: string;
+  engineNumber: string;
+  registrationCounty: string;
   manufactureDate: string;
   mileage: number;
   colour: string;
@@ -128,6 +136,14 @@ function loadVehicles(): Vehicle[] {
       year: vehicle.year ?? "",
       registration: vehicle.registration ?? "",
       vin: vehicle.vin ?? "",
+      engineSizeCc: vehicle.engineSizeCc ?? "",
+      fuelType: vehicle.fuelType ?? "",
+      transmission: vehicle.transmission ?? "",
+      bodyStyle: vehicle.bodyStyle ?? "",
+      numberOfDoors: vehicle.numberOfDoors ?? "",
+      numberOfSeats: vehicle.numberOfSeats ?? "",
+      engineNumber: vehicle.engineNumber ?? "",
+      registrationCounty: vehicle.registrationCounty ?? "",
       manufactureDate: vehicle.manufactureDate ?? "",
       mileage: typeof vehicle.mileage === "number" ? vehicle.mileage : 0,
       colour: vehicle.colour ?? "",
@@ -251,7 +267,7 @@ function Brand({ onClick }: { onClick: () => void }) {
 // Only these vehicle fields are editable in the Vehicle Info form.
 type VehicleInfoDraft = Pick<
   Vehicle,
-  "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes" | "imported"
+  "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes" | "imported" | "engineSizeCc" | "fuelType" | "transmission" | "bodyStyle" | "numberOfDoors" | "numberOfSeats" | "engineNumber" | "registrationCounty"
 >;
 
 // Main app component: manages the garage, active vehicle, and forms.
@@ -268,7 +284,7 @@ function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [registrationLookup, setRegistrationLookup] = useState("");
   const [showManualVehicleForm, setShowManualVehicleForm] = useState(false);
-  const [lookupResult, setLookupResult] = useState<{ make: string; model: string; year: string; colour: string } | null>(null);
+  const [lookupResult, setLookupResult] = useState<Partial<Pick<Vehicle, "make" | "model" | "year" | "colour" | "vin" | "engineSizeCc" | "fuelType" | "transmission" | "bodyStyle" | "numberOfDoors" | "numberOfSeats" | "engineNumber" | "registrationCounty">> | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
   const [lookupError, setLookupError] = useState("");
   const [search, setSearch] = useState("");
@@ -361,6 +377,15 @@ function App() {
         model: String(data.model),
         year: String(data.year ?? ""),
         colour: String(data.colour ?? ""),
+        vin: String(data.vin ?? ""),
+        engineSizeCc: String(data.engineSizeCc ?? ""),
+        fuelType: String(data.fuelType ?? ""),
+        transmission: String(data.transmission ?? ""),
+        bodyStyle: String(data.bodyStyle ?? ""),
+        numberOfDoors: String(data.numberOfDoors ?? ""),
+        numberOfSeats: String(data.numberOfSeats ?? ""),
+        engineNumber: String(data.engineNumber ?? ""),
+        registrationCounty: String(data.registrationCounty ?? ""),
       });
       setShowManualVehicleForm(true); // Let the user review/edit every field before saving.
     } catch {
@@ -382,7 +407,15 @@ function App() {
       model: String(form.get("model")).trim(),
       year: String(form.get("year")).trim(),
       registration: String(form.get("registration")).trim(),
-      vin: String(form.get("vin")).trim(),
+      vin: String(form.get("vin") ?? "").trim(),
+      engineSizeCc: String(form.get("engineSizeCc") ?? "").trim(),
+      fuelType: String(form.get("fuelType") ?? "").trim(),
+      transmission: String(form.get("transmission") ?? "").trim(),
+      bodyStyle: String(form.get("bodyStyle") ?? "").trim(),
+      numberOfDoors: String(form.get("numberOfDoors") ?? "").trim(),
+      numberOfSeats: String(form.get("numberOfSeats") ?? "").trim(),
+      engineNumber: String(form.get("engineNumber") ?? "").trim(),
+      registrationCounty: String(form.get("registrationCounty") ?? "").trim(),
       manufactureDate: String(form.get("manufactureDate")),
       mileage: Number(form.get("mileage")) || 0,
       colour: String(form.get("colour")).trim(),
@@ -424,6 +457,14 @@ function App() {
       year: selectedVehicle.year,
       registration: selectedVehicle.registration,
       vin: selectedVehicle.vin ?? "",
+      engineSizeCc: selectedVehicle.engineSizeCc ?? "",
+      fuelType: selectedVehicle.fuelType ?? "",
+      transmission: selectedVehicle.transmission ?? "",
+      bodyStyle: selectedVehicle.bodyStyle ?? "",
+      numberOfDoors: selectedVehicle.numberOfDoors ?? "",
+      numberOfSeats: selectedVehicle.numberOfSeats ?? "",
+      engineNumber: selectedVehicle.engineNumber ?? "",
+      registrationCounty: selectedVehicle.registrationCounty ?? "",
       manufactureDate: selectedVehicle.manufactureDate ?? "",
       colour: selectedVehicle.colour,
       notes: selectedVehicle.notes,
@@ -798,9 +839,17 @@ function App() {
                           <option value="Car">Car</option><option value="Motorcycle">Motorcycle</option><option value="Commercial">Commercial</option><option value="Other">Other</option>
                         </select>
                       </label>
-                      <label className="field"><span>Model year</span><input value={infoDraft.year} onChange={(event) => updateInfoDraft("year", event.target.value)} inputMode="numeric" /></label>
+                      <label className="field"><span>Registration year</span><input value={infoDraft.year} onChange={(event) => updateInfoDraft("year", event.target.value)} inputMode="numeric" /></label>
                       <label className="field"><span>Registration</span><input value={infoDraft.registration} onChange={(event) => updateInfoDraft("registration", event.target.value)} placeholder="e.g. 12-C-12345" /></label>
                       <label className="field"><span>Colour</span><input value={infoDraft.colour} onChange={(event) => updateInfoDraft("colour", event.target.value)} placeholder="e.g. Black" /></label>
+                      <label className="field"><span>Engine size (cc)</span><input value={infoDraft.engineSizeCc} onChange={(event) => updateInfoDraft("engineSizeCc", event.target.value)} inputMode="numeric" placeholder="Not recorded" /></label>
+                      <label className="field"><span>Fuel type</span><input value={infoDraft.fuelType} onChange={(event) => updateInfoDraft("fuelType", event.target.value)} placeholder="Not recorded" /></label>
+                      <label className="field"><span>Transmission</span><input value={infoDraft.transmission} onChange={(event) => updateInfoDraft("transmission", event.target.value)} placeholder="Not recorded" /></label>
+                      <label className="field"><span>Body style</span><input value={infoDraft.bodyStyle} onChange={(event) => updateInfoDraft("bodyStyle", event.target.value)} placeholder="Not recorded" /></label>
+                      <label className="field"><span>Number of doors</span><input value={infoDraft.numberOfDoors} onChange={(event) => updateInfoDraft("numberOfDoors", event.target.value)} inputMode="numeric" placeholder="Not recorded" /></label>
+                      <label className="field"><span>Number of seats</span><input value={infoDraft.numberOfSeats} onChange={(event) => updateInfoDraft("numberOfSeats", event.target.value)} inputMode="numeric" placeholder="Not recorded" /></label>
+                      <label className="field"><span>Engine number</span><input value={infoDraft.engineNumber} onChange={(event) => updateInfoDraft("engineNumber", event.target.value)} placeholder="Not recorded" /></label>
+                      <label className="field"><span>County of registration</span><input value={infoDraft.registrationCounty} onChange={(event) => updateInfoDraft("registrationCounty", event.target.value)} placeholder="Not recorded" /></label>
                       <label className="field"><span>VIN / chassis number</span><input value={infoDraft.vin} onChange={(event) => updateInfoDraft("vin", event.target.value)} placeholder="Vehicle identification number" /></label>
                       <label className="field"><span>Date of manufacture</span><input type="date" value={infoDraft.manufactureDate} onChange={(event) => updateInfoDraft("manufactureDate", event.target.value)} /></label>
                       <label className="field"><span>Imported</span><select value={infoDraft.imported ? "Yes" : "No"} onChange={(event) => updateInfoDraft("imported", event.target.value === "Yes")}><option value="No">No</option><option value="Yes">Yes</option></select></label>
@@ -826,6 +875,14 @@ function App() {
                       <div className="vehicle-detail-item"><span>Model year</span><strong>{selectedVehicle.year || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Registration</span><strong>{selectedVehicle.registration || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Colour</span><strong>{selectedVehicle.colour || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Engine size (cc)</span><strong>{selectedVehicle.engineSizeCc || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Fuel type</span><strong>{selectedVehicle.fuelType || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Transmission</span><strong>{selectedVehicle.transmission || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Body style</span><strong>{selectedVehicle.bodyStyle || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Number of doors</span><strong>{selectedVehicle.numberOfDoors || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Number of seats</span><strong>{selectedVehicle.numberOfSeats || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Engine number</span><strong>{selectedVehicle.engineNumber || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>County of registration</span><strong>{selectedVehicle.registrationCounty || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>VIN / chassis number</span><strong className="detail-value-mono">{selectedVehicle.vin || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Date of manufacture</span><strong>{selectedVehicle.manufactureDate || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Imported</span><strong>{(selectedVehicle.imported ?? false) ? "Yes" : "No"}</strong></div>
@@ -1260,7 +1317,7 @@ function App() {
                   <input name="model" required key={`model-${registrationLookup}-${lookupResult?.model ?? ""}`} defaultValue={lookupResult?.model ?? ""} placeholder="e.g. 320d" />
                 </label>
                 <label className="field">
-                  <span>Year</span>
+                  <span>Registration year</span>
                   <input name="year" type="number" min="1900" max="2100" defaultValue={lookupResult?.year ?? ""} placeholder="e.g. 2018" />
                 </label>
                 <label className="field">
@@ -1273,8 +1330,16 @@ function App() {
                 </label>
                 <label className="field">
                   <span>VIN / chassis number</span>
-                  <input name="vin" placeholder="Vehicle identification number" />
+                  <input name="vin" defaultValue={lookupResult?.vin ?? ""} placeholder="Vehicle identification number" />
                 </label>
+                <label className="field"><span>Engine size (cc)</span><input name="engineSizeCc" inputMode="numeric" defaultValue={lookupResult?.engineSizeCc ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Fuel type</span><input name="fuelType" defaultValue={lookupResult?.fuelType ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Transmission</span><input name="transmission" defaultValue={lookupResult?.transmission ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Body style</span><input name="bodyStyle" defaultValue={lookupResult?.bodyStyle ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Number of doors</span><input name="numberOfDoors" inputMode="numeric" defaultValue={lookupResult?.numberOfDoors ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Number of seats</span><input name="numberOfSeats" inputMode="numeric" defaultValue={lookupResult?.numberOfSeats ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Engine number</span><input name="engineNumber" defaultValue={lookupResult?.engineNumber ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>County of registration</span><input name="registrationCounty" defaultValue={lookupResult?.registrationCounty ?? ""} placeholder="Optional" /></label>
                 <label className="field">
                   <span>Date of manufacture</span>
                   <input name="manufactureDate" type="date" />
