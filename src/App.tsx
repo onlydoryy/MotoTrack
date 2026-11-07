@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import "./App.css";
+import { supabase } from "./lib/supabase";
 
 // Supported vehicle categories and the three tabs on a vehicle profile.
 type VehicleType = "Car" | "Motorcycle" | "Commercial" | "Other";
@@ -41,6 +42,12 @@ type VehicleDocument = {
   id: string;
   name: string;
   dateAdded: string;
+  folderId?: string | null;
+};
+
+type DocumentFolder = {
+  id: string;
+  name: string;
 };
 
 // Complete saved vehicle shape, including service history and document metadata.
@@ -52,6 +59,14 @@ type Vehicle = {
   year: string;
   registration: string;
   vin: string;
+  engineSizeCc: string;
+  fuelType: string;
+  transmission: string;
+  bodyStyle: string;
+  numberOfDoors: string;
+  numberOfSeats: string;
+  engineNumber: string;
+  registrationCounty: string;
   manufactureDate: string;
   mileage: number;
   colour: string;
@@ -64,6 +79,7 @@ type Vehicle = {
   favorite?: boolean;
   serviceRecords: ServiceRecord[];
   documents: VehicleDocument[];
+  documentFolders: DocumentFolder[];
 };
 
 // Demo vehicles shown the first time the app is opened without saved data.
@@ -76,6 +92,14 @@ const starterVehicles: Vehicle[] = [
     year: "2008",
     registration: "Demo vehicle",
     vin: "",
+    engineSizeCc: "",
+    fuelType: "",
+    transmission: "",
+    bodyStyle: "",
+    numberOfDoors: "",
+    numberOfSeats: "",
+    engineNumber: "",
+    registrationCounty: "",
     manufactureDate: "",
     mileage: 319000,
     colour: "Black",
@@ -87,6 +111,7 @@ const starterVehicles: Vehicle[] = [
     dateAdded: 1,
     serviceRecords: [],
     documents: [],
+    documentFolders: [],
   },
   {
     id: "demo-bike",
@@ -96,6 +121,14 @@ const starterVehicles: Vehicle[] = [
     year: "2002",
     registration: "Demo vehicle",
     vin: "",
+    engineSizeCc: "",
+    fuelType: "",
+    transmission: "",
+    bodyStyle: "",
+    numberOfDoors: "",
+    numberOfSeats: "",
+    engineNumber: "",
+    registrationCounty: "",
     manufactureDate: "",
     mileage: 45000,
     colour: "Blue",
@@ -107,6 +140,7 @@ const starterVehicles: Vehicle[] = [
     dateAdded: 2,
     serviceRecords: [],
     documents: [],
+    documentFolders: [],
   },
 ];
 
@@ -127,6 +161,14 @@ function loadVehicles(): Vehicle[] {
       year: vehicle.year ?? "",
       registration: vehicle.registration ?? "",
       vin: vehicle.vin ?? "",
+      engineSizeCc: vehicle.engineSizeCc ?? "",
+      fuelType: vehicle.fuelType ?? "",
+      transmission: vehicle.transmission ?? "",
+      bodyStyle: vehicle.bodyStyle ?? "",
+      numberOfDoors: vehicle.numberOfDoors ?? "",
+      numberOfSeats: vehicle.numberOfSeats ?? "",
+      engineNumber: vehicle.engineNumber ?? "",
+      registrationCounty: vehicle.registrationCounty ?? "",
       manufactureDate: vehicle.manufactureDate ?? "",
       mileage: typeof vehicle.mileage === "number" ? vehicle.mileage : 0,
       colour: vehicle.colour ?? "",
@@ -146,7 +188,8 @@ function loadVehicles(): Vehicle[] {
         notes: record.notes ?? "",
         receipts: record.receipts ?? [],
       })),
-      documents: vehicle.documents ?? [],
+      documents: (vehicle.documents ?? []).map((doc) => ({ ...doc, folderId: doc.folderId ?? null })),
+      documentFolders: vehicle.documentFolders ?? [],
     })) as Vehicle[];
   } catch {
     return starterVehicles;
@@ -250,7 +293,7 @@ function Brand({ onClick }: { onClick: () => void }) {
 // Only these vehicle fields are editable in the Vehicle Info form.
 type VehicleInfoDraft = Pick<
   Vehicle,
-  "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes" | "imported"
+  "type" | "make" | "model" | "year" | "registration" | "vin" | "manufactureDate" | "colour" | "notes" | "imported" | "engineSizeCc" | "fuelType" | "transmission" | "bodyStyle" | "numberOfDoors" | "numberOfSeats" | "engineNumber" | "registrationCounty"
 >;
 
 // Main app component: manages the garage, active vehicle, and forms.
@@ -259,14 +302,19 @@ function App() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(loadVehicles);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [infoDraft, setInfoDraft] = useState<VehicleInfoDraft | null>(null);
+  const [expiryEdit, setExpiryEdit] = useState<{ vehicleId: string; field: "taxExpiry" | "testExpiry"; value: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("info");
+  const [openDocumentFolder, setOpenDocumentFolder] = useState<{ vehicleId: string; folderId: string | null } | null>(null);
   const [filter, setFilter] = useState("All");
   const [customTypes, setCustomTypes] = useState<VehicleType[]>(["Car", "Motorcycle"]);
   const [sort, setSort] = useState("newest");
   const [showAddModal, setShowAddModal] = useState(false);
   const [registrationLookup, setRegistrationLookup] = useState("");
   const [showManualVehicleForm, setShowManualVehicleForm] = useState(false);
+  const [lookupResult, setLookupResult] = useState<Partial<Pick<Vehicle, "make" | "model" | "year" | "colour" | "vin" | "engineSizeCc" | "fuelType" | "transmission" | "bodyStyle" | "numberOfDoors" | "numberOfSeats" | "engineNumber" | "registrationCounty">> | null>(null);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupError, setLookupError] = useState("");
   const [search, setSearch] = useState("");
   const [serviceKind, setServiceKind] = useState<ServiceKind>("Service");
   const [showServiceForm, setShowServiceForm] = useState(false);
@@ -330,6 +378,51 @@ function App() {
     return result;
   }, [vehicles, filter, customTypes, sort, search]);
 
+  // Registration lookups run through a Supabase Edge Function: never expose provider credentials in Vite.
+  async function lookUpRegistration() {
+    setLookupError("");
+    setLookupResult(null);
+    const plate = registrationLookup.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!/^[0-9]{2,3}[A-Z]{1,2}[0-9]{1,6}$/.test(plate)) {
+      setLookupError("Please enter a valid Irish registration, for example 08-C-12345.");
+      return;
+    }
+    if (!supabase) {
+      setLookupError("Supabase is not configured. You can still enter the vehicle manually.");
+      return;
+    }
+    setLookupBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vehicle-lookup", {
+        body: { registration: plate },
+      });
+      if (error) throw error;
+      if (!data || typeof data !== "object" || !data.make || !data.model) {
+        throw new Error("Vehicle details were not returned.");
+      }
+      setLookupResult({
+        make: String(data.make),
+        model: String(data.model),
+        year: String(data.year ?? ""),
+        colour: String(data.colour ?? ""),
+        vin: String(data.vin ?? ""),
+        engineSizeCc: String(data.engineSizeCc ?? ""),
+        fuelType: String(data.fuelType ?? ""),
+        transmission: String(data.transmission ?? ""),
+        bodyStyle: String(data.bodyStyle ?? ""),
+        numberOfDoors: String(data.numberOfDoors ?? ""),
+        numberOfSeats: String(data.numberOfSeats ?? ""),
+        engineNumber: String(data.engineNumber ?? ""),
+        registrationCounty: String(data.registrationCounty ?? ""),
+      });
+      setShowManualVehicleForm(true); // Let the user review/edit every field before saving.
+    } catch {
+      setLookupError("Lookup unavailable or vehicle not found. Please enter the details manually.");
+    } finally {
+      setLookupBusy(false);
+    }
+  }
+
   // Read the add-vehicle form and create a new vehicle record.
   function addVehicle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -342,7 +435,15 @@ function App() {
       model: String(form.get("model")).trim(),
       year: String(form.get("year")).trim(),
       registration: String(form.get("registration")).trim(),
-      vin: String(form.get("vin")).trim(),
+      vin: String(form.get("vin") ?? "").trim(),
+      engineSizeCc: String(form.get("engineSizeCc") ?? "").trim(),
+      fuelType: String(form.get("fuelType") ?? "").trim(),
+      transmission: String(form.get("transmission") ?? "").trim(),
+      bodyStyle: String(form.get("bodyStyle") ?? "").trim(),
+      numberOfDoors: String(form.get("numberOfDoors") ?? "").trim(),
+      numberOfSeats: String(form.get("numberOfSeats") ?? "").trim(),
+      engineNumber: String(form.get("engineNumber") ?? "").trim(),
+      registrationCounty: String(form.get("registrationCounty") ?? "").trim(),
       manufactureDate: String(form.get("manufactureDate")),
       mileage: Number(form.get("mileage")) || 0,
       colour: String(form.get("colour")).trim(),
@@ -354,6 +455,7 @@ function App() {
       dateAdded: Date.now(),
       serviceRecords: [],
       documents: [],
+      documentFolders: [],
     };
 
     setVehicles((current) => [...current, newVehicle]);
@@ -363,6 +465,8 @@ function App() {
     setVehiclePhoto("");
     setRegistrationLookup("");
     setShowManualVehicleForm(false);
+    setLookupResult(null);
+    setLookupError("");
   }
 
   // Toggle a favourite; favourites always appear before other vehicles.
@@ -382,6 +486,14 @@ function App() {
       year: selectedVehicle.year,
       registration: selectedVehicle.registration,
       vin: selectedVehicle.vin ?? "",
+      engineSizeCc: selectedVehicle.engineSizeCc ?? "",
+      fuelType: selectedVehicle.fuelType ?? "",
+      transmission: selectedVehicle.transmission ?? "",
+      bodyStyle: selectedVehicle.bodyStyle ?? "",
+      numberOfDoors: selectedVehicle.numberOfDoors ?? "",
+      numberOfSeats: selectedVehicle.numberOfSeats ?? "",
+      engineNumber: selectedVehicle.engineNumber ?? "",
+      registrationCounty: selectedVehicle.registrationCounty ?? "",
       manufactureDate: selectedVehicle.manufactureDate ?? "",
       colour: selectedVehicle.colour,
       notes: selectedVehicle.notes,
@@ -404,6 +516,38 @@ function App() {
     ));
     setInfoDraft(null);
     setIsEditingInfo(false);
+  }
+
+  // Update one existing status card without changing the other expiry date.
+  function saveExpiryDate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!expiryEdit || !selectedVehicle || expiryEdit.vehicleId !== selectedVehicle.id) return;
+    const { vehicleId, field, value } = expiryEdit;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === vehicleId ? { ...vehicle, [field]: value } : vehicle,
+    ));
+    setExpiryEdit(null);
+  }
+
+  function expiryEditor(field: "taxExpiry" | "testExpiry") {
+    if (!selectedVehicle) return null;
+    const editing = expiryEdit?.vehicleId === selectedVehicle.id && expiryEdit.field === field;
+    return editing ? (
+      <form className="status-date-editor" onSubmit={saveExpiryDate}>
+        <label>
+          <span>Recorded expiry date</span>
+          <input type="date" value={expiryEdit.value} onChange={(event) => setExpiryEdit((old) => old ? { ...old, value: event.target.value } : old)} />
+        </label>
+        <div className="status-editor-actions">
+          <button type="submit" className="button button-primary">Save</button>
+          <button type="button" className="button button-secondary" onClick={() => setExpiryEdit(null)}>Cancel</button>
+        </div>
+      </form>
+    ) : (
+      <button type="button" className="status-card-edit" onClick={() => setExpiryEdit({
+        vehicleId: selectedVehicle.id, field, value: selectedVehicle[field] || "",
+      })}>✎ Edit date</button>
+    );
   }
 
   // Update one field in the unsaved Vehicle Info draft.
@@ -575,29 +719,102 @@ function App() {
     setShowServiceForm(false);
   }
 
-  // Record the names of uploaded vehicle documents (full document storage comes later).
-  // Record the names of uploaded vehicle documents (full document storage comes later).
+  // The current Documents tab stores filenames/metadata, not the underlying file bytes.
+  // A folder ID of null means Unfiled, including documents from older versions.
   function addDocument(event: ChangeEvent<HTMLInputElement>) {
     if (!selectedVehicle) return;
-
     const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
     if (!files.length) return;
-
-    const newDocuments = files.map((file) => ({
+    const folderId = openDocumentFolder?.vehicleId === selectedVehicle.id ? openDocumentFolder.folderId : null;
+    const newDocuments: VehicleDocument[] = files.map((file) => ({
       id: crypto.randomUUID(),
       name: file.name,
       dateAdded: new Date().toISOString().slice(0, 10),
+      folderId,
     }));
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documents: [...newDocuments, ...vehicle.documents] }
+        : vehicle,
+    ));
+  }
 
-    setVehicles((current) =>
-      current.map((vehicle) =>
-        vehicle.id === selectedVehicle.id
-          ? { ...vehicle, documents: [...newDocuments, ...vehicle.documents] }
-          : vehicle,
-      ),
-    );
+  function createDocumentFolder() {
+    if (!selectedVehicle) return;
+    const entered = window.prompt("Folder name (for example, NCT Reports):");
+    if (entered === null) return;
+    const name = entered.trim();
+    if (!name) { window.alert("Enter a folder name."); return; }
+    if (name.length > 70) { window.alert("Folder names must be 70 characters or fewer."); return; }
+    if (selectedVehicle.documentFolders.some((folder) => folder.name.toLowerCase() === name.toLowerCase())) {
+      window.alert("A folder with that name already exists for this vehicle."); return;
+    }
+    const newFolder: DocumentFolder = { id: crypto.randomUUID(), name };
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documentFolders: [...vehicle.documentFolders, newFolder] }
+        : vehicle,
+    ));
+    setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: newFolder.id });
+  }
 
-    event.target.value = "";
+  function renameDocumentFolder(folderId: string) {
+    if (!selectedVehicle) return;
+    const folder = selectedVehicle.documentFolders.find((item) => item.id === folderId);
+    if (!folder) return;
+    const entered = window.prompt("Rename folder:", folder.name);
+    if (entered === null) return;
+    const name = entered.trim();
+    if (!name || name.length > 70) { window.alert("Enter a name of up to 70 characters."); return; }
+    if (selectedVehicle.documentFolders.some((item) =>
+      item.id !== folderId && item.name.toLowerCase() === name.toLowerCase())) {
+      window.alert("Another folder already has that name."); return;
+    }
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documentFolders: vehicle.documentFolders.map((item) =>
+            item.id === folderId ? { ...item, name } : item) }
+        : vehicle,
+    ));
+  }
+
+  function deleteDocumentFolder(folderId: string) {
+    if (!selectedVehicle) return;
+    const folder = selectedVehicle.documentFolders.find((item) => item.id === folderId);
+    if (!folder) return;
+    const count = selectedVehicle.documents.filter((doc) => doc.folderId === folderId).length;
+    if (!window.confirm(`Delete folder "${folder.name}"? ${count ? `${count} document record(s) will move to Unfiled.` : "The folder is empty."} No document records will be deleted.`)) return;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? {
+            ...vehicle,
+            documentFolders: vehicle.documentFolders.filter((item) => item.id !== folderId),
+            documents: vehicle.documents.map((doc) => doc.folderId === folderId ? { ...doc, folderId: null } : doc),
+          }
+        : vehicle,
+    ));
+    setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: null });
+  }
+
+  function moveDocument(documentId: string, folderId: string | null) {
+    if (!selectedVehicle) return;
+    if (folderId && !selectedVehicle.documentFolders.some((folder) => folder.id === folderId)) return;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documents: vehicle.documents.map((doc) =>
+            doc.id === documentId ? { ...doc, folderId } : doc) }
+        : vehicle,
+    ));
+  }
+
+  function deleteDocument(documentId: string) {
+    if (!selectedVehicle || !window.confirm("Remove this document entry?")) return;
+    setVehicles((current) => current.map((vehicle) =>
+      vehicle.id === selectedVehicle.id
+        ? { ...vehicle, documents: vehicle.documents.filter((doc) => doc.id !== documentId) }
+        : vehicle,
+    ));
   }
 
   // Confirm before deleting a vehicle and its associated local history.
@@ -686,6 +903,10 @@ function App() {
                     ? `Expiry: ${selectedVehicle.taxExpiry}`
                     : "Add an expiry date in Vehicle Info"}
                 </span>
+                <div className="status-card-actions">
+                  {expiryEditor("taxExpiry")}
+                  <a href="https://www.motortax.ie/OMT/" target="_blank" rel="noopener noreferrer" className="status-card-link">Check official site ↗</a>
+                </div>
               </div>
 
               <div className="quick-stat">
@@ -716,6 +937,15 @@ function App() {
                         ? `Expiry: ${selectedVehicle.testExpiry}`
                         : "Add a test expiry date in Vehicle Info"}
                     </span>
+                    <div className="status-card-actions">
+                      {expiryEditor("testExpiry")}
+                      {selectedVehicle.type === "Car" && (
+                        <a href="https://www.ncts.ie/check-nct-due-date/" target="_blank" rel="noopener noreferrer" className="status-card-link">Check official site ↗</a>
+                      )}
+                      {selectedVehicle.type === "Commercial" && (
+                        <span className="stat-foot">Check CVRT with the relevant authorised test service.</span>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -756,9 +986,17 @@ function App() {
                           <option value="Car">Car</option><option value="Motorcycle">Motorcycle</option><option value="Commercial">Commercial</option><option value="Other">Other</option>
                         </select>
                       </label>
-                      <label className="field"><span>Model year</span><input value={infoDraft.year} onChange={(event) => updateInfoDraft("year", event.target.value)} inputMode="numeric" /></label>
+                      <label className="field"><span>Registration year</span><input value={infoDraft.year} onChange={(event) => updateInfoDraft("year", event.target.value)} inputMode="numeric" /></label>
                       <label className="field"><span>Registration</span><input value={infoDraft.registration} onChange={(event) => updateInfoDraft("registration", event.target.value)} placeholder="e.g. 12-C-12345" /></label>
                       <label className="field"><span>Colour</span><input value={infoDraft.colour} onChange={(event) => updateInfoDraft("colour", event.target.value)} placeholder="e.g. Black" /></label>
+                      <label className="field"><span>Engine size (cc)</span><input value={infoDraft.engineSizeCc} onChange={(event) => updateInfoDraft("engineSizeCc", event.target.value)} inputMode="numeric" placeholder="Not recorded" /></label>
+                      <label className="field"><span>Fuel type</span><input value={infoDraft.fuelType} onChange={(event) => updateInfoDraft("fuelType", event.target.value)} placeholder="Not recorded" /></label>
+                      <label className="field"><span>Transmission</span><input value={infoDraft.transmission} onChange={(event) => updateInfoDraft("transmission", event.target.value)} placeholder="Not recorded" /></label>
+                      <label className="field"><span>Body style</span><input value={infoDraft.bodyStyle} onChange={(event) => updateInfoDraft("bodyStyle", event.target.value)} placeholder="Not recorded" /></label>
+                      <label className="field"><span>Number of doors</span><input value={infoDraft.numberOfDoors} onChange={(event) => updateInfoDraft("numberOfDoors", event.target.value)} inputMode="numeric" placeholder="Not recorded" /></label>
+                      <label className="field"><span>Number of seats</span><input value={infoDraft.numberOfSeats} onChange={(event) => updateInfoDraft("numberOfSeats", event.target.value)} inputMode="numeric" placeholder="Not recorded" /></label>
+                      <label className="field"><span>Engine number</span><input value={infoDraft.engineNumber} onChange={(event) => updateInfoDraft("engineNumber", event.target.value)} placeholder="Not recorded" /></label>
+                      <label className="field"><span>County of registration</span><input value={infoDraft.registrationCounty} onChange={(event) => updateInfoDraft("registrationCounty", event.target.value)} placeholder="Not recorded" /></label>
                       <label className="field"><span>VIN / chassis number</span><input value={infoDraft.vin} onChange={(event) => updateInfoDraft("vin", event.target.value)} placeholder="Vehicle identification number" /></label>
                       <label className="field"><span>Date of manufacture</span><input type="date" value={infoDraft.manufactureDate} onChange={(event) => updateInfoDraft("manufactureDate", event.target.value)} /></label>
                       <label className="field"><span>Imported</span><select value={infoDraft.imported ? "Yes" : "No"} onChange={(event) => updateInfoDraft("imported", event.target.value === "Yes")}><option value="No">No</option><option value="Yes">Yes</option></select></label>
@@ -784,6 +1022,14 @@ function App() {
                       <div className="vehicle-detail-item"><span>Model year</span><strong>{selectedVehicle.year || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Registration</span><strong>{selectedVehicle.registration || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Colour</span><strong>{selectedVehicle.colour || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Engine size (cc)</span><strong>{selectedVehicle.engineSizeCc || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Fuel type</span><strong>{selectedVehicle.fuelType || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Transmission</span><strong>{selectedVehicle.transmission || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Body style</span><strong>{selectedVehicle.bodyStyle || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Number of doors</span><strong>{selectedVehicle.numberOfDoors || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Number of seats</span><strong>{selectedVehicle.numberOfSeats || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>Engine number</span><strong>{selectedVehicle.engineNumber || "Not recorded"}</strong></div>
+                      <div className="vehicle-detail-item"><span>County of registration</span><strong>{selectedVehicle.registrationCounty || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>VIN / chassis number</span><strong className="detail-value-mono">{selectedVehicle.vin || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Date of manufacture</span><strong>{selectedVehicle.manufactureDate || "Not recorded"}</strong></div>
                       <div className="vehicle-detail-item"><span>Imported</span><strong>{(selectedVehicle.imported ?? false) ? "Yes" : "No"}</strong></div>
@@ -797,6 +1043,7 @@ function App() {
                 )}
               </div>
             )}
+
 
             {/* Service/repair form and expandable history records for the selected vehicle. */}
             {activeTab === "service" && (
@@ -963,45 +1210,91 @@ function App() {
               </div>
             )}
 
-            {/* Paperwork tab: currently stores document names, not file contents. */}
-            {activeTab === "documents" && (
-              <div className="detail-panel">
-                <div className="section-heading">
-                  <div>
-                    <h2>Documents</h2>
-                    <p>Keep track of receipts, invoices and vehicle paperwork.</p>
+            {/* Per-vehicle document filing. File contents are not yet uploaded/stored. */}
+            {activeTab === "documents" && (() => {
+              const folders = selectedVehicle.documentFolders ?? [];
+              const documents = selectedVehicle.documents ?? [];
+              const requestedFolderId = openDocumentFolder?.vehicleId === selectedVehicle.id
+                ? openDocumentFolder.folderId : null;
+              const currentFolderId = requestedFolderId && folders.some((folder) => folder.id === requestedFolderId)
+                ? requestedFolderId : null;
+              const currentFolder = folders.find((folder) => folder.id === currentFolderId);
+              const visibleDocuments = documents.filter((doc) => currentFolderId
+                ? doc.folderId === currentFolderId
+                : !doc.folderId || !folders.some((folder) => folder.id === doc.folderId));
+              const unfiledCount = documents.filter((doc) => !doc.folderId || !folders.some((folder) => folder.id === doc.folderId)).length;
+              return (
+                <div className="detail-panel document-organiser">
+                  <div className="section-heading">
+                    <div>
+                      <h2>Documents</h2>
+                      <p>Create your own folders to organise paperwork for this vehicle.</p>
+                    </div>
+                    <div className="documents-toolbar">
+                      <button type="button" className="button button-secondary" onClick={createDocumentFolder}>＋ New folder</button>
+                      <label className="button button-primary upload-doc-button">
+                        ＋ Add document
+                        <input type="file" multiple onChange={addDocument} />
+                      </label>
+                    </div>
                   </div>
-                  <label className="button button-primary upload-doc-button">
-                    ＋ Add document
-                    <input type="file" multiple onChange={addDocument} />
-                  </label>
-                </div>
-
-                <p className="document-note">
-                  This first version records document names only. File storage and previews can be added with the backend.
-                </p>
-
-                {selectedVehicle.documents.length ? (
-                  <div className="record-list">
-                    {selectedVehicle.documents.map((document) => (
-                      <div className="record-row" key={document.id}>
-                        <div className="record-icon">▤</div>
-                        <div className="record-main">
-                          <strong>{document.name}</strong>
-                          <span>Added {document.dateAdded}</span>
+                  <p className="document-note">Currently MotoTrack saves document names only, not the actual files. Keep your originals until file storage is introduced.</p>
+                  <div className="document-folder-nav">
+                    <button type="button" className={`document-folder-tile ${currentFolderId === null ? "is-active" : ""}`}
+                      onClick={() => setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: null })}>
+                      <span className="folder-symbol">▤</span><strong>Unfiled</strong><small>{unfiledCount} document(s)</small>
+                    </button>
+                    {folders.map((folder) => (
+                      <div className={`document-folder-tile ${currentFolderId === folder.id ? "is-active" : ""}`} key={folder.id}>
+                        <button type="button" className="document-folder-open" onClick={() => setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: folder.id })}>
+                          <span className="folder-symbol">▣</span>
+                          <strong>{folder.name}</strong>
+                          <small>{documents.filter((doc) => doc.folderId === folder.id).length} document(s)</small>
+                        </button>
+                        <div className="document-folder-actions">
+                          <button type="button" onClick={() => renameDocumentFolder(folder.id)} aria-label={`Rename ${folder.name}`}>Rename</button>
+                          <button type="button" onClick={() => deleteDocumentFolder(folder.id)} aria-label={`Delete ${folder.name}`}>Delete</button>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="empty-state">
-                    <div className="empty-icon">▧</div>
-                    <h3>No documents added</h3>
-                    <p>Add a receipt, invoice or other document to keep a record of it here.</p>
+                  <div className="document-folder-heading">
+                    <h3>{currentFolder?.name ?? "Unfiled documents"}</h3>
+                    <span>{visibleDocuments.length} document(s)</span>
                   </div>
-                )}
-              </div>
-            )}
+                  {visibleDocuments.length ? (
+                    <div className="record-list">
+                      {visibleDocuments.map((doc) => (
+                        <div className="record-row document-entry" key={doc.id}>
+                          <div className="record-icon">▤</div>
+                          <div className="record-main">
+                            <strong>{doc.name}</strong>
+                            <span>Added {doc.dateAdded} · Filename only</span>
+                          </div>
+                          <div className="document-entry-actions">
+                            <label>
+                              <span>Move to</span>
+                              <select aria-label={`Move ${doc.name} to folder`} value={doc.folderId && folders.some((folder) => folder.id === doc.folderId) ? doc.folderId : ""}
+                                onChange={(event) => moveDocument(doc.id, event.target.value || null)}>
+                                <option value="">Unfiled</option>
+                                {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+                              </select>
+                            </label>
+                            <button type="button" className="document-remove" onClick={() => deleteDocument(doc.id)}>Remove</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-state">
+                      <div className="empty-icon">▧</div>
+                      <h3>{currentFolderId ? "This folder is empty" : "No unfiled documents"}</h3>
+                      <p>Add documents here, or move existing entries into this folder using the Move to menu.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
         ) : (
           <section className="page-content">
@@ -1182,16 +1475,11 @@ function App() {
                     autoComplete="off"
                   />
                 </label>
-                <a
-                  className="button button-primary registration-lookup-button"
-                  href="https://www.vehicleservices.gov.ie/cmv/search-result"
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setRegistrationLookup((current) => current.trim().toUpperCase())}
-                >
-                  Open official vehicle lookup ↗
-                </a>
-                <p className="registration-lookup-note">The official site opens in a new tab. Automatic data import is not available yet, so review the results there and enter them into MotoTrack.</p>
+                <button type="button" className="button button-primary registration-lookup-button" disabled={lookupBusy} onClick={lookUpRegistration}>
+                  {lookupBusy ? "Looking up vehicle…" : "Look up vehicle"}
+                </button>
+                {lookupError && <p className="registration-lookup-note" role="alert">{lookupError}</p>}
+                <p className="registration-lookup-note">Auto-fill uses a vehicle-data provider. Check the details before saving; tax and NCT dates are entered manually.</p>
                 <button type="button" className="manual-entry-link" onClick={() => setShowManualVehicleForm(true)}>
                   Enter vehicle details manually →
                 </button>
@@ -1201,6 +1489,7 @@ function App() {
                 <button type="button" className="manual-entry-link back-to-lookup" onClick={() => setShowManualVehicleForm(false)}>
                   ← Back to registration lookup
                 </button>
+                {lookupResult && <p className="registration-lookup-note">Details found. Review them, add mileage and any missing information, then save.</p>}
                 <form onSubmit={addVehicle}>
               <label className="field">
                 <span>Vehicle type *</span>
@@ -1215,19 +1504,19 @@ function App() {
               <div className="form-two-col">
                 <label className="field">
                   <span>Make *</span>
-                  <input name="make" required placeholder="e.g. BMW" />
+                  <input name="make" required key={`make-${registrationLookup}-${lookupResult?.make ?? ""}`} defaultValue={lookupResult?.make ?? ""} placeholder="e.g. BMW" />
                 </label>
                 <label className="field">
                   <span>Model *</span>
-                  <input name="model" required placeholder="e.g. 320d" />
+                  <input name="model" required key={`model-${registrationLookup}-${lookupResult?.model ?? ""}`} defaultValue={lookupResult?.model ?? ""} placeholder="e.g. 320d" />
                 </label>
                 <label className="field">
-                  <span>Year</span>
-                  <input name="year" type="number" min="1900" max="2100" placeholder="e.g. 2018" />
+                  <span>Registration year</span>
+                  <input name="year" type="number" min="1900" max="2100" defaultValue={lookupResult?.year ?? ""} placeholder="e.g. 2018" />
                 </label>
                 <label className="field">
                   <span>Colour</span>
-                  <input name="colour" placeholder="e.g. Black" />
+                  <input name="colour" defaultValue={lookupResult?.colour ?? ""} placeholder="e.g. Black" />
                 </label>
                 <label className="field">
                   <span>Registration</span>
@@ -1235,8 +1524,16 @@ function App() {
                 </label>
                 <label className="field">
                   <span>VIN / chassis number</span>
-                  <input name="vin" placeholder="Vehicle identification number" />
+                  <input name="vin" defaultValue={lookupResult?.vin ?? ""} placeholder="Vehicle identification number" />
                 </label>
+                <label className="field"><span>Engine size (cc)</span><input name="engineSizeCc" inputMode="numeric" defaultValue={lookupResult?.engineSizeCc ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Fuel type</span><input name="fuelType" defaultValue={lookupResult?.fuelType ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Transmission</span><input name="transmission" defaultValue={lookupResult?.transmission ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Body style</span><input name="bodyStyle" defaultValue={lookupResult?.bodyStyle ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Number of doors</span><input name="numberOfDoors" inputMode="numeric" defaultValue={lookupResult?.numberOfDoors ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Number of seats</span><input name="numberOfSeats" inputMode="numeric" defaultValue={lookupResult?.numberOfSeats ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>Engine number</span><input name="engineNumber" defaultValue={lookupResult?.engineNumber ?? ""} placeholder="Optional" /></label>
+                <label className="field"><span>County of registration</span><input name="registrationCounty" defaultValue={lookupResult?.registrationCounty ?? ""} placeholder="Optional" /></label>
                 <label className="field">
                   <span>Date of manufacture</span>
                   <input name="manufactureDate" type="date" />
