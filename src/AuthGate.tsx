@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import App from "./App";
+import AccountProfile from "./AccountProfile";
 import "./AuthGate.css";
 
 type Mode = "login" | "register";
@@ -18,7 +19,7 @@ export default function AuthGate() {
   useEffect(() => {
     let active = true;
     const client = supabase;
-    if (!client) { setChecking(false); return; }
+    if (!client) return;
     client.auth.getSession().then(({ data, error: authError }) => {
       if (!active) return;
       setSession(data.session);
@@ -84,10 +85,7 @@ export default function AuthGate() {
   if (checking) return <div className="auth-loading">Loading MotoTrack…</div>;
   if (session) return (
     <>
-      <div className="auth-account-bar">
-        <span>Signed in as <strong>{session.user.email}</strong></span>
-        <button type="button" onClick={signOut}>Sign out</button>
-      </div>
+      <AccountProfile key={session.user.id} user={session.user} onSignOut={signOut} />
       <div className="auth-local-notice">Vehicle records are still saved on this browser, not yet linked to your account.</div>
       <App />
     </>
