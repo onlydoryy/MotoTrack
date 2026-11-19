@@ -117,8 +117,8 @@ export default function AccountProfile({ user, onSignOut, page, count, onGarage 
       <a className="account-back" href="#garage" onClick={onGarage}>← My Garage</a>
       <h1>Profile</h1>
       <section className="profile-dialog profile-panel">
-      <header><h2>{label}</h2><a href="#manage-garage">{count} {count === 1 ? "vehicle" : "vehicles"} in garage</a></header>
       <div className="profile-picture">{avatar}<div>
+        <header><h2>{label}</h2><a href="#manage-garage">{count} {count === 1 ? "vehicle" : "vehicles"} in garage</a></header>
         <label htmlFor="profile-photo">Profile picture</label>
         <input id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || loadingPhoto}
           onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void changePhoto(file); }} />
