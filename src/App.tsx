@@ -3,9 +3,10 @@ import AccountProfile from "./AccountProfile";
 import PersonalDocuments from "./PersonalDocuments";
 import ManageGarage from "./ManageGarage";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import "./App.css";
+import "./Appearance.css";
 import { supabase } from "./lib/supabase";
 
 // Supported vehicle categories and the three tabs on a vehicle profile.
@@ -316,6 +317,29 @@ function accountPage() {
 
 function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }) {
   const [page, setPage] = useState(accountPage);
+  const savedTheme = user.user_metadata.theme === "bright" ? "bright" : "dark";
+  const [pendingTheme, setPendingTheme] = useState<"dark" | "bright" | null>(null);
+  const [themeError, setThemeError] = useState("");
+  const theme = pendingTheme ?? savedTheme;
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    return () => { delete document.documentElement.dataset.theme; };
+  }, [theme]);
+
+  async function changeTheme(next: "dark" | "bright") {
+    if (pendingTheme || next === savedTheme || !supabase) return;
+    setThemeError("");
+    setPendingTheme(next);
+    try {
+      const { error } = await supabase.auth.updateUser({ data: { theme: next } });
+      if (error) throw error;
+    } catch {
+      setThemeError("Could not save your appearance. Please try again.");
+    } finally {
+      setPendingTheme(null);
+    }
+  }
   useEffect(() => {
     const navigate = () => setPage(accountPage());
     window.addEventListener("hashchange", navigate);
@@ -871,9 +895,22 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
           resetServiceForm();
           setShowServiceForm(false);
           startEditingInfo(vehicle);
-          window.location.hash = "garage";
+          window.location.assign("#garage");
         }} />}
-        {page === "settings" && <><h1>Settings</h1><p>No preferences available yet.</p></>}
+        {page === "settings" && <>
+          <h1>Settings</h1>
+          <fieldset className="appearance-settings" disabled={pendingTheme !== null}>
+            <legend>Appearance</legend>
+            {(["dark", "bright"] as const).map(mode => (
+              <label key={mode} className="theme-choice">
+                <input type="radio" name="appearance" value={mode} checked={theme === mode} onChange={() => void changeTheme(mode)} />
+                {mode === "dark" ? "Dark" : "Bright"}
+              </label>
+            ))}
+          </fieldset>
+          {pendingTheme && <p role="status">Saving appearance…</p>}
+          {themeError && <p role="alert" className="auth-feedback auth-error">{themeError}</p>}
+        </>}
       </main>}
       {!page && (    <div className="app-shell">
       {/* Main content changes between the garage overview and a vehicle profile. */}

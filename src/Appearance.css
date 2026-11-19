@@ -1,0 +1,69 @@
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --text-h: #eef3f7;
+}
+
+:root[data-theme="bright"] {
+  color-scheme: light;
+  --form-scheme: light;
+  --theme-canvas: #f4f6f8;
+  --theme-surface: #ffffff;
+  --theme-raised: #e9eef2;
+  --theme-line: #bbc7ce;
+  --theme-ink: #17252e;
+  --theme-secondary: #435663;
+  --theme-link: #416018;
+  --theme-tint: #edf5df;
+  --theme-active-border: #758e50;
+  --theme-warning: #795000;
+  --theme-danger: #982e40;
+  --theme-danger-surface: #fff0f1;
+  --theme-danger-border: #c78a92;
+  --bg: var(--theme-canvas);
+  --panel: var(--theme-surface);
+  --border: var(--theme-line);
+  --muted: var(--theme-secondary);
+  --text: var(--theme-ink);
+  --text-h: var(--theme-ink);
+  color: var(--text);
+  background: var(--bg);
+}
+
+:root[data-theme="bright"] :focus-visible {
+  outline-color: var(--theme-link);
+}
+
+.appearance-settings {
+  padding: 18px;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  text-align: left;
+}
+
+.appearance-settings legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+.theme-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.theme-choice:has(:checked) {
+  border-color: var(--theme-active-border, #a3c563);
+  background: var(--theme-tint, #27332e);
+}
+
+.theme-choice input {
+  margin: 0;
+  accent-color: var(--theme-link, var(--accent));
+}
