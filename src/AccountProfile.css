@@ -14,7 +14,16 @@
   font: inherit;
   cursor: pointer;
 }
-.profile-trigger { display: flex; align-items: center; gap: 8px; max-width: 100%; }
+.profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 4px 10px 4px 5px;
+  font-size: 14px;
+  line-height: 1.25;
+}
+.profile-trigger .profile-avatar { width: 42px; height: 42px; font-size: 18px; }
 .profile-trigger > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-avatar {
   display: grid; place-items: center; flex: none;
