@@ -38,11 +38,25 @@
   background: var(--theme-surface, #151d26); color: var(--theme-ink, #eef4f7);
 }
 .profile-dialog::backdrop { background: rgb(0 0 0 / 65%); }
-.profile-dialog header, .profile-picture { display: flex; align-items: center; gap: 14px; }
-.profile-dialog header { justify-content: space-between; flex-wrap: wrap; }
+.profile-dialog header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; }
 .profile-dialog h2 { margin: 0; }
-.profile-picture { margin: 24px 0; }
-.profile-picture .profile-avatar { width: 64px; height: 64px; font-size: 22px; }
+.profile-picture {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(20px, 4vw, 36px);
+  margin-bottom: 28px;
+}
+.profile-picture .profile-avatar {
+  width: clamp(112px, 17vw, 160px);
+  height: auto;
+  aspect-ratio: 1;
+  font-size: 44px;
+}
+.profile-picture button { justify-self: start; }
+@media (max-width: 520px) {
+  .profile-picture { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
 .profile-picture > div, .profile-dialog form { min-width: 0; display: grid; gap: 8px; }
 .profile-dialog input { min-width: 0; width: 100%; box-sizing: border-box; color: inherit; }
 .profile-dialog form input { border: 1px solid var(--theme-line, #455361); border-radius: 8px; background: var(--theme-surface, #101820); padding: 10px; }
