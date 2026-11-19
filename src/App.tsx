@@ -2,6 +2,8 @@ import type { User } from "@supabase/supabase-js";
 import AccountProfile from "./AccountProfile";
 import PersonalDocuments from "./PersonalDocuments";
 import ManageGarage from "./ManageGarage";
+import { GarageHeader, VehicleCollection } from "./GarageOverview";
+import InterfaceIcon from "./InterfaceIcon";
 
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
@@ -11,7 +13,7 @@ import { supabase } from "./lib/supabase";
 
 // Supported vehicle categories and the three tabs on a vehicle profile.
 type VehicleType = "Car" | "Motorcycle" | "Commercial" | "Other";
-type Tab = "info" | "service" | "documents";
+export type Tab = "info" | "service" | "documents";
 
 // One history entry is either routine maintenance or a repair.
 type ServiceKind = "Service" | "Repair";
@@ -64,7 +66,7 @@ type DocumentFolder = {
 };
 
 // Complete saved vehicle shape, including service history and document metadata.
-type Vehicle = {
+export type Vehicle = {
   id: string;
   type: VehicleType;
   make: string;
@@ -300,6 +302,19 @@ type VehicleInfoDraft = Pick<
 >;
 
 // Main app component: manages the garage, active vehicle, and forms.
+function vehicleRoute(hash = window.location.hash) {
+  const [, encodedId, section, encodedRecord] = hash.split("/");
+  if (!hash.startsWith("#vehicle/") || !encodedId) return null;
+  try {
+    const tab: Tab = section === "service" || section === "documents" ? section : "info";
+    return { id: decodeURIComponent(encodedId), tab, record: encodedRecord ? decodeURIComponent(encodedRecord) : null };
+  } catch { return null; }
+}
+
+function vehicleUrl(id: string, tab: Tab = "info", record?: string) {
+  return `#vehicle/${encodeURIComponent(id)}/${tab}${record ? "/" + encodeURIComponent(record) : ""}`;
+}
+
 function accountPage() {
   const page = window.location.hash.slice(1);
   return ["profile", "documents", "manage-garage", "settings"].includes(page) ? page : "";
@@ -331,7 +346,22 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
     }
   }
   useEffect(() => {
-    const navigate = () => setPage(accountPage());
+    const navigate = (event: HashChangeEvent) => {
+      const route = vehicleRoute();
+      const previous = vehicleRoute(new URL(event.oldURL).hash);
+      setPage(accountPage());
+      setSelectedId(route?.id ?? null);
+      setActiveTab(route?.tab ?? "info");
+      setExpandedRecordId(route?.record ?? null);
+      if (previous && previous.id !== route?.id) {
+        setIsEditingInfo(false);
+        setInfoDraft(null);
+        resetServiceForm();
+        setShowServiceForm(false);
+        setExpiryEdit(null);
+      }
+      window.scrollTo(0, 0);
+    };
     window.addEventListener("hashchange", navigate);
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
@@ -341,8 +371,8 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [infoDraft, setInfoDraft] = useState<VehicleInfoDraft | null>(null);
   const [expiryEdit, setExpiryEdit] = useState<{ vehicleId: string; field: "taxExpiry" | "testExpiry"; value: string } | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("info");
+  const [selectedId, setSelectedId] = useState<string | null>(() => vehicleRoute()?.id ?? null);
+  const [activeTab, setActiveTab] = useState<Tab>(() => vehicleRoute()?.tab ?? "info");
   const [openDocumentFolder, setOpenDocumentFolder] = useState<{ vehicleId: string; folderId: string | null } | null>(null);
   const [filter, setFilter] = useState("All");
   const [customTypes, setCustomTypes] = useState<VehicleType[]>(["Car", "Motorcycle"]);
@@ -370,7 +400,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
   // Receipt photos waiting to be saved with the next history entry.
   const [serviceReceipts, setServiceReceipts] = useState<ReceiptAttachment[]>([]);
   // Keep track of which history entry is currently expanded.
-  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(() => vehicleRoute()?.record ?? null);
   const [vehiclePhoto, setVehiclePhoto] = useState("");
   const [cropSource, setCropSource] = useState<string | null>(null);
   const [cropTargetId, setCropTargetId] = useState<string | null>(null);
@@ -379,6 +409,31 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
   const [cropY, setCropY] = useState(50);
   const [isCropDragging, setIsCropDragging] = useState(false);
   const [stagedVehiclePhoto, setStagedVehiclePhoto] = useState<{ id: string; image: string } | null>(null);
+
+  useEffect(() => {
+    if (!showAddModal && !cropSource) return;
+    const dialog = document.querySelector<HTMLElement>(cropSource ? ".crop-modal" : ".modal");
+    if (!dialog) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
+    )).filter(element => element.getClientRects().length > 0);
+    focusable()[0]?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (cropSource) { setCropSource(null); setCropTargetId(null); }
+        else { setShowAddModal(false); setVehiclePhoto(""); }
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusable();
+      const first = elements[0], last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => { document.removeEventListener("keydown", handleKey); if (opener?.isConnected) opener.focus(); };
+  }, [showAddModal, cropSource]);
 
   // Persist the latest garage data after each change.
   useEffect(() => {
@@ -401,6 +456,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
       const matchesSearch = text.includes(search.toLowerCase());
       const matchesFilter =
         filter === "All" ||
+        (filter === "Favourites" && Boolean(vehicle.favorite)) ||
         (filter === "Custom" && customTypes.includes(vehicle.type)) ||
         vehicle.type === filter;
 
@@ -500,6 +556,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
     };
 
     setVehicles((current) => [...current, newVehicle]);
+    window.location.assign(vehicleUrl(newVehicle.id));
     setSelectedId(newVehicle.id);
     setActiveTab("info");
     setShowAddModal(false);
@@ -863,20 +920,33 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
   }
 
   // Confirm before deleting a vehicle and its associated local history.
+  function openVehicle(vehicle: Vehicle, tab: Tab = "info", recordId?: string) {
+    cancelEditingInfo();
+    resetServiceForm();
+    setShowServiceForm(false);
+    window.location.assign(vehicleUrl(vehicle.id, tab, recordId));
+  }
+
   function deleteVehicle(id: string) {
     if (!window.confirm("Delete this vehicle and its records? This cannot be undone.")) return;
 
     setVehicles((current) => current.filter((vehicle) => vehicle.id !== id));
     setSelectedId(null);
+    if (vehicleRoute()?.id === id) window.location.assign("#garage");
   }
 
   return (
     <>
+      <a className="skip-main" href="#main-content" onClick={event => {
+        event.preventDefault();
+        document.getElementById("main-content")?.focus();
+      }}>Skip to content</a>
       <AccountProfile user={user} onSignOut={onSignOut} page={page} count={vehicles.length} onGarage={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
-      {(!page || page === "manage-garage") && <div className="auth-local-notice">Vehicle records are saved in this browser.</div>}
-      {page && page !== "profile" && <main className="account-page">
+      
+      {page && page !== "profile" && <main id="main-content" tabIndex={-1} className="account-page">
         <a className="account-back" href="#garage" onClick={() => { setSelectedId(null); cancelEditingInfo(); }}>← My Garage</a>
         {page === "documents" && <PersonalDocuments userId={user.id} />}
+        {page === "manage-garage" && <p className="storage-note">Vehicle records are saved in this browser.</p>}
         {page === "manage-garage" && <ManageGarage vehicles={vehicles} onDelete={deleteVehicle} onEdit={vehicleId => {
           const vehicle = vehicles.find(item => item.id === vehicleId);
           if (!vehicle) return;
@@ -885,7 +955,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
           resetServiceForm();
           setShowServiceForm(false);
           startEditingInfo(vehicle);
-          window.location.assign("#garage");
+          window.location.assign(vehicleUrl(vehicle.id));
         }} />}
         {page === "settings" && <>
           <h1>Settings</h1>
@@ -904,12 +974,12 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
       </main>}
       {!page && (    <div className="app-shell">
       {/* Main content changes between the garage overview and a vehicle profile. */}
-      <main className="main-content">
+      <main id="main-content" tabIndex={-1} className="main-content">
         {selectedVehicle ? (
           <section className="page-content detail-page">
             {/* Vehicle profile: photo/header, tabs, and the selected tab panel. */}
 
-            <button className="back-button" onClick={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }}>
+            <button className="back-button" onClick={() => { window.location.assign("#garage"); setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }}>
               ← Back to My Garage
             </button>
 
@@ -1012,13 +1082,13 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
             {/* Navigation between vehicle information, service history, and documents. */}
             {/* Tabs switch between vehicle information, service history, and documents. */}
             <div className="detail-tabs">
-              <button className={activeTab === "info" ? "selected" : ""} onClick={() => setActiveTab("info")}>
+              <button className={activeTab === "info" ? "selected" : ""} aria-pressed={activeTab === "info"} onClick={() => window.location.assign(vehicleUrl(selectedVehicle.id))}>
                 ▤ Vehicle Info
               </button>
-              <button className={activeTab === "service" ? "selected" : ""} onClick={() => { setShowServiceForm(false); setActiveTab("service"); }}>
+              <button className={activeTab === "service" ? "selected" : ""} aria-pressed={activeTab === "service"} onClick={() => { setShowServiceForm(false); window.location.assign(vehicleUrl(selectedVehicle.id, "service")); }}>
                 ◷ Service History <span>{selectedVehicle.serviceRecords.length}</span>
               </button>
-              <button className={activeTab === "documents" ? "selected" : ""} onClick={() => setActiveTab("documents")}>
+              <button className={activeTab === "documents" ? "selected" : ""} aria-pressed={activeTab === "documents"} onClick={() => window.location.assign(vehicleUrl(selectedVehicle.id, "documents"))}>
                 ▧ Documents <span>{selectedVehicle.documents.length}</span>
               </button>
             </div>
@@ -1357,36 +1427,13 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
         ) : (
           <section className="page-content">
 
-            <div className="garage-summary">
-              <div className="summary-symbol">▦</div>
-              <div className="garage-summary-title">
-                <span>MY GARAGE</span>
-                <strong>{vehicles.length} {vehicles.length === 1 ? "vehicle" : "vehicles"}</strong>
-              </div>
-              <div className="summary-divider" />
-              {([
-                { type: "Car", label: "cars", className: "car-dot" },
-                { type: "Motorcycle", label: "motorcycles", className: "bike-dot" },
-                { type: "Commercial", label: "commercial", className: "van-dot" },
-                { type: "Other", label: "other", className: "other-dot" },
-              ] as const).map(({ type, label, className }) => {
-                const count = vehicles.filter((vehicle) => vehicle.type === type).length;
-                return count > 0 ? (
-                  <div className="summary-type" key={type}>
-                    <span className={`type-dot ${className}`} />{count} {label}
-                  </div>
-                ) : null;
-              })}
-              <button className="button button-primary large-add garage-add-button" onClick={() => { setNewVehicleType("Car"); setShowAddModal(true); }}>
-                ＋ Add vehicle
-              </button>
-            </div>
+            <GarageHeader vehicles={vehicles} onOpen={openVehicle} onAdd={() => { setNewVehicleType("Car"); setShowAddModal(true); }} />
 
             <div className="garage-toolbar">
               <div className="toolbar-controls">
                 <label className="toolbar-control filter-control"><span>Filter</span>
                   <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter vehicles">
-                    <option value="All">All vehicles</option><option value="Car">Cars</option><option value="Motorcycle">Motorcycles</option>
+                    <option value="All">All vehicles</option><option value="Favourites">Favourites</option><option value="Car">Cars</option><option value="Motorcycle">Motorcycles</option>
                     <option value="Commercial">Commercial</option><option value="Other">Other</option><option value="Custom">Custom selection…</option>
                   </select>
                 </label>
@@ -1396,7 +1443,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
                     <option value="mileage-low">Mileage: low to high</option><option value="mileage-high">Mileage: high to low</option>
                   </select>
                 </label>
-                <label className="search-box"><span>⌕</span>
+                <label className="search-box"><InterfaceIcon name="search" />
                   <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search garage..." aria-label="Search garage" />
                 </label>
               </div>
@@ -1410,60 +1457,10 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
             </div>
 
             {visibleVehicles.length ? (
-              <div className="vehicle-grid">
-                {visibleVehicles.map((vehicle) => (
-                  <div
-                    className="vehicle-card"
-                    key={vehicle.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => { setSelectedId(vehicle.id); setActiveTab("info"); setIsEditingInfo(false); setInfoDraft(null); }}
-                    onKeyDown={(event) => {
-                      if (event.target !== event.currentTarget) return;
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelectedId(vehicle.id);
-                        setActiveTab("info");
-                        setIsEditingInfo(false);
-                        setInfoDraft(null);
-                      }
-                    }}
-                  >
-                    <div className={`vehicle-card-image ${vehicle.image ? "has-photo" : ""}`}>
-                      {vehicle.image ? (
-                        <img src={vehicle.image} alt={`${vehicle.make} ${vehicle.model}`} />
-                      ) : (
-                        <VehicleIllustration type={vehicle.type} />
-                      )}
-                      <span className="vehicle-type-pill">{vehicle.type}</span>
-                      <button
-                        type="button"
-                        className={`vehicle-favorite ${vehicle.favorite ? "is-favorite" : ""}`}
-                        aria-label={vehicle.favorite ? "Remove from favourites" : "Add to favourites"}
-                        aria-pressed={Boolean(vehicle.favorite)}
-                        title={vehicle.favorite ? "Remove from favourites" : "Add to favourites"}
-                        onClick={(event) => { event.stopPropagation(); toggleFavorite(vehicle.id); }}
-                        onKeyDown={(event) => event.stopPropagation()}
-                      >★</button>
-                      <span className="card-open">↗</span>
-                    </div>
-
-                    <div className="vehicle-card-content">
-                      <div className="vehicle-card-title">
-                        <h3>{vehicle.make || "New"} {vehicle.model || "vehicle"}</h3>
-                        <span>{vehicle.year || "Year not set"}</span>
-                      </div>
-                      <div className="vehicle-card-registration">
-                        {vehicle.registration || "Registration not recorded"}
-                      </div>
-                      <div className="vehicle-card-footer">
-                        <span>◉ {formatMileage(vehicle.mileage)} km</span>
-                        <span className="view-details">View details <span>→</span></span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <VehicleCollection vehicles={visibleVehicles} onOpen={openVehicle} onFavourite={toggleFavorite}
+                picture={vehicle => vehicle.image
+                  ? <img src={vehicle.image} alt="" loading="lazy" />
+                  : <VehicleIllustration type={vehicle.type} />} />
             ) : (
               <div className="garage-empty">
                 <div className="empty-garage-illustration">
@@ -1487,9 +1484,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
               </div>
             )}
 
-            <div className="page-footnote">
-              <span>✓</span> Your garage is saved locally on this device. Database sync can be added later.
-            </div>
+            <p className="storage-note">Vehicle records are saved in this browser.</p>
           </section>
         )}
       </main>
@@ -1506,14 +1501,14 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
             }
           }}
         >
-          <div className="modal">
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="add-vehicle-title" tabIndex={-1}>
             <div className="modal-header">
               <div>
                 <span className="eyebrow">NEW RECORD</span>
-                <h2>Add a vehicle</h2>
+                <h2 id="add-vehicle-title">Add a vehicle</h2>
                 <p>Start with the basics. You can update everything later.</p>
               </div>
-              <button className="modal-close" onClick={() => { setShowAddModal(false); setVehiclePhoto(""); }}>
+              <button className="modal-close" aria-label="Close add vehicle" onClick={() => { setShowAddModal(false); setVehiclePhoto(""); }}>
                 ×
               </button>
             </div>
