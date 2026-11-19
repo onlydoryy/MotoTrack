@@ -763,6 +763,17 @@ button:disabled {
   margin: 17px 0 25px;
 }
 
+.motorcycle-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 810px;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.motorcycle-stats .status-line {
+  justify-content: center;
+}
+
 .quick-stat {
   min-width: 0;
   padding: 17px 19px;
