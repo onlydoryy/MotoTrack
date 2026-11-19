@@ -30,11 +30,19 @@ type ServiceRecord = {
 };
 
 // Searchable preset jobs, grouped by the type of maintenance they belong to.
-const maintenanceGroups = [
+const generalMaintenanceGroups = [
   { title: "Filters", items: ["Oil filter", "Air filter", "Fuel filter", "Cabin / pollen filter"] },
   { title: "Fluids", items: ["Engine oil", "Coolant", "Brake fluid", "Gearbox oil", "Differential oil", "Power steering fluid"] },
   { title: "Brakes & tyres", items: ["Brake pads", "Brake discs", "Tyre replacement", "Tyre rotation"] },
   { title: "Other routine maintenance", items: ["Spark plugs", "Timing belt / chain inspection", "Battery", "Wipers"] },
+];
+
+const motorcycleMaintenanceGroups = [
+  { title: "Chain & final drive", items: ["Chain cleaning", "Chain lubrication", "Chain slack adjustment", "Chain and sprocket wear inspection", "Chain and sprocket replacement", "Drive belt inspection", "Shaft final-drive oil change"] },
+  { title: "Engine & filters", items: ["Engine oil", "Oil filter", "Air filter", "Fuel filter", "Spark plugs", "Valve clearance check / adjustment", "Carburettor synchronisation", "Coolant"] },
+  { title: "Brakes & tyres", items: ["Brake pads", "Brake discs", "Brake fluid", "Brake caliper service", "Front tyre replacement", "Rear tyre replacement", "Tyre pressure and tread check"] },
+  { title: "Suspension & bearings", items: ["Fork oil change", "Fork seal replacement", "Steering head bearing check", "Wheel bearing check", "Swingarm and linkage bearing service"] },
+  { title: "Controls & electrics", items: ["Clutch cable adjustment", "Throttle cable adjustment", "Clutch fluid change", "Battery"] },
 ];
 
 // Lightweight metadata for documents listed in the Documents tab.
@@ -310,6 +318,7 @@ function App() {
   const [customTypes, setCustomTypes] = useState<VehicleType[]>(["Car", "Motorcycle"]);
   const [sort, setSort] = useState("newest");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [newVehicleType, setNewVehicleType] = useState<VehicleType>("Car");
   const [registrationLookup, setRegistrationLookup] = useState("");
   const [showManualVehicleForm, setShowManualVehicleForm] = useState(false);
   const [lookupResult, setLookupResult] = useState<Partial<Pick<Vehicle, "make" | "model" | "year" | "colour" | "vin" | "engineSizeCc" | "fuelType" | "transmission" | "bodyStyle" | "numberOfDoors" | "numberOfSeats" | "engineNumber" | "registrationCounty">> | null>(null);
@@ -352,6 +361,8 @@ function App() {
 
   // Resolve the active vehicle ID to the full saved vehicle object.
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedId) ?? null;
+  const isMotorcycle = selectedVehicle?.type === "Motorcycle";
+  const maintenanceGroups = isMotorcycle ? motorcycleMaintenanceGroups : generalMaintenanceGroups;
 
   // Filter and sort garage cards without repeating the work on unrelated renders.
   const visibleVehicles = useMemo(() => {
@@ -448,7 +459,7 @@ function App() {
       mileage: Number(form.get("mileage")) || 0,
       colour: String(form.get("colour")).trim(),
       taxExpiry: String(form.get("taxExpiry")),
-      testExpiry: String(form.get("testExpiry")),
+      testExpiry: String(form.get("testExpiry") ?? ""),
       imported: false,
       notes: "",
       image: vehiclePhoto,
@@ -511,6 +522,10 @@ function App() {
   // Apply the edited details to the selected vehicle, then close edit mode.
   function saveVehicleInfo() {
     if (!selectedVehicle || !infoDraft) return;
+    if (infoDraft.type !== selectedVehicle.type) {
+      resetServiceForm();
+      setShowServiceForm(false);
+    }
     setVehicles((current) => current.map((vehicle) =>
       vehicle.id === selectedVehicle.id ? { ...vehicle, ...infoDraft } : vehicle,
     ));
@@ -742,7 +757,7 @@ function App() {
 
   function createDocumentFolder() {
     if (!selectedVehicle) return;
-    const entered = window.prompt("Folder name (for example, NCT Reports):");
+    const entered = window.prompt(isMotorcycle ? "Folder name (for example, Insurance):" : "Folder name (for example, NCT Reports):");
     if (entered === null) return;
     const name = entered.trim();
     if (!name) { window.alert("Enter a folder name."); return; }
@@ -832,9 +847,9 @@ function App() {
         {selectedVehicle ? (
           <section className="page-content detail-page">
             {/* Vehicle profile: photo/header, tabs, and the selected tab panel. */}
-            <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); }} />
+            <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
 
-            <button className="back-button" onClick={() => { setSelectedId(null); cancelEditingInfo(); }}>
+            <button className="back-button" onClick={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }}>
               ← Back to My Garage
             </button>
 
@@ -885,7 +900,7 @@ function App() {
             </div>
 
             {/* At-a-glance mileage, motor tax, and test status. */}
-            <div className="quick-stats">
+            <div className={isMotorcycle ? "quick-stats motorcycle-stats" : "quick-stats"}>
               <div className="quick-stat">
                 <span className="stat-label">LAST RECORDED MILEAGE</span>
                 <strong>{formatMileage(selectedVehicle.mileage)} <small>km</small></strong>
@@ -909,46 +924,29 @@ function App() {
                 </div>
               </div>
 
-              <div className="quick-stat">
-                <span className="stat-label">
-                  {selectedVehicle.type === "Motorcycle"
-                    ? "NCT"
-                    : selectedVehicle.type === "Commercial"
-                      ? "CVRT / TEST"
-                      : "NCT STATUS"}
-                </span>
-
-                {selectedVehicle.type === "Motorcycle" ? (
-                  <>
-                    <strong className="status-line">
-                      <span className="status-dot status-neutral" />
-                      Not applicable
-                    </strong>
-                    <span className="stat-foot">Motorcycles do not require an NCT</span>
-                  </>
-                ) : (
-                  <>
-                    <strong className="status-line">
-                      <span className={`status-dot ${expiryStatus(selectedVehicle.testExpiry).className}`} />
-                      {expiryStatus(selectedVehicle.testExpiry).label}
-                    </strong>
-                    <span className="stat-foot">
-                      {selectedVehicle.testExpiry
-                        ? `Expiry: ${selectedVehicle.testExpiry}`
-                        : "Add a test expiry date in Vehicle Info"}
-                    </span>
-                    <div className="status-card-actions">
-                      {expiryEditor("testExpiry")}
-                      {selectedVehicle.type === "Car" && (
-                        <a href="https://www.ncts.ie/check-nct-due-date/" target="_blank" rel="noopener noreferrer" className="status-card-link">Check official site ↗</a>
-                      )}
-                      {selectedVehicle.type === "Commercial" && (
-                        <span className="stat-foot">Check CVRT with the relevant authorised test service.</span>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              {!isMotorcycle && (
+                <div className="quick-stat">
+                  <span className="stat-label">{selectedVehicle.type === "Commercial" ? "CVRT / TEST" : "NCT STATUS"}</span>
+                  <strong className="status-line">
+                    <span className={`status-dot ${expiryStatus(selectedVehicle.testExpiry).className}`} />
+                    {expiryStatus(selectedVehicle.testExpiry).label}
+                  </strong>
+                  <span className="stat-foot">
+                    {selectedVehicle.testExpiry
+                      ? `Expiry: ${selectedVehicle.testExpiry}`
+                      : "Add a test expiry date in Vehicle Info"}
+                  </span>
+                  <div className="status-card-actions">
+                    {expiryEditor("testExpiry")}
+                    {selectedVehicle.type === "Car" && (
+                      <a href="https://www.ncts.ie/check-nct-due-date/" target="_blank" rel="noopener noreferrer" className="status-card-link">Check official site ↗</a>
+                    )}
+                    {selectedVehicle.type === "Commercial" && (
+                      <span className="stat-foot">Check CVRT with the relevant authorised test service.</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Navigation between vehicle information, service history, and documents. */}
@@ -1298,7 +1296,7 @@ function App() {
           </section>
         ) : (
           <section className="page-content">
-            <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); }} />
+            <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
 
             <div className="garage-summary">
               <div className="summary-symbol">▦</div>
@@ -1320,7 +1318,7 @@ function App() {
                   </div>
                 ) : null;
               })}
-              <button className="button button-primary large-add garage-add-button" onClick={() => setShowAddModal(true)}>
+              <button className="button button-primary large-add garage-add-button" onClick={() => { setNewVehicleType("Car"); setShowAddModal(true); }}>
                 ＋ Add vehicle
               </button>
             </div>
@@ -1423,7 +1421,7 @@ function App() {
                     Clear filters
                   </button>
                 ) : (
-                  <button className="button button-primary" onClick={() => setShowAddModal(true)}>
+                  <button className="button button-primary" onClick={() => { setNewVehicleType("Car"); setShowAddModal(true); }}>
                     ＋ Add your first vehicle
                   </button>
                 )}
@@ -1493,7 +1491,7 @@ function App() {
                 <form onSubmit={addVehicle}>
               <label className="field">
                 <span>Vehicle type *</span>
-                <select name="type" required>
+                <select name="type" value={newVehicleType} onChange={(event) => setNewVehicleType(event.target.value as VehicleType)} required>
                   <option value="Car">Car</option>
                   <option value="Motorcycle">Motorcycle</option>
                   <option value="Commercial">Commercial</option>
@@ -1546,10 +1544,12 @@ function App() {
                   <span>Motor tax expiry</span>
                   <input name="taxExpiry" type="date" />
                 </label>
-                <label className="field">
-                  <span>NCT / test expiry</span>
-                  <input name="testExpiry" type="date" />
-                </label>
+                {newVehicleType !== "Motorcycle" && (
+                  <label className="field">
+                    <span>NCT / test expiry</span>
+                    <input name="testExpiry" type="date" />
+                  </label>
+                )}
               </div>
 
               <label className="photo-upload-zone">
