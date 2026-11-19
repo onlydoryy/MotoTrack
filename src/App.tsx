@@ -292,16 +292,6 @@ function expiryStatus(date: string) {
 }
 
 // Reusable MotoTrack logo button; clicking it returns to the garage overview.
-function Brand({ onClick }: { onClick: () => void }) {
-  return (
-    <button className="brand garage-brand" onClick={onClick} aria-label="MotoTrack home">
-      <span className="brand-mark">M</span>
-      <span>
-        Moto<span className="brand-light">Track</span>
-      </span>
-    </button>
-  );
-}
 
 // Only these vehicle fields are editable in the Vehicle Info form.
 type VehicleInfoDraft = Pick<
@@ -882,7 +872,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
 
   return (
     <>
-      <AccountProfile user={user} onSignOut={onSignOut} page={page} count={vehicles.length} onGarage={() => { setSelectedId(null); cancelEditingInfo(); }} />
+      <AccountProfile user={user} onSignOut={onSignOut} page={page} count={vehicles.length} onGarage={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
       {(!page || page === "manage-garage") && <div className="auth-local-notice">Vehicle records are saved in this browser.</div>}
       {page && page !== "profile" && <main className="account-page">
         <a className="account-back" href="#garage" onClick={() => { setSelectedId(null); cancelEditingInfo(); }}>← My Garage</a>
@@ -918,7 +908,6 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
         {selectedVehicle ? (
           <section className="page-content detail-page">
             {/* Vehicle profile: photo/header, tabs, and the selected tab panel. */}
-            <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
 
             <button className="back-button" onClick={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }}>
               ← Back to My Garage
@@ -1367,7 +1356,6 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
           </section>
         ) : (
           <section className="page-content">
-            <Brand onClick={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
 
             <div className="garage-summary">
               <div className="summary-symbol">▦</div>

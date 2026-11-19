@@ -101,7 +101,12 @@ export default function AccountProfile({ user, onSignOut, page, count, onGarage 
   const avatar = <span className="profile-avatar" aria-hidden="true">{preview ? <img src={preview} alt="" /> : initials}</span>;
 
   return <>
-    <div className="profile-bar"><details ref={menu} className="account-menu">
+    <header className="profile-bar">
+      <a className="brand" href="#garage" onClick={onGarage} aria-label="MotoTrack home">
+        <span className="brand-mark">M</span>
+        <span>Moto<span className="brand-light">Track</span></span>
+      </a>
+      <details ref={menu} className="account-menu">
       <summary className="profile-trigger" aria-label={`Account menu for ${label}`}>{avatar}<span>{label}</span><span aria-hidden="true">▾</span></summary>
       <nav aria-label="Account" className="account-links">
         <div className="menu-identity">{avatar}<strong>{label}</strong></div>
@@ -112,7 +117,8 @@ export default function AccountProfile({ user, onSignOut, page, count, onGarage 
           }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d={icons[id]} /></svg>{title}</a>)}
         <button type="button" onClick={onSignOut}>Sign out</button>
       </nav>
-    </details></div>
+      </details>
+    </header>
     {page === "profile" && <main className="account-page">
       <a className="account-back" href="#garage" onClick={onGarage}>← My Garage</a>
       <h1>Profile</h1>
