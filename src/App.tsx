@@ -1,3 +1,7 @@
+import type { User } from "@supabase/supabase-js";
+import AccountProfile from "./AccountProfile";
+import PersonalDocuments from "./PersonalDocuments";
+import ManageGarage from "./ManageGarage";
 
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
@@ -305,7 +309,19 @@ type VehicleInfoDraft = Pick<
 >;
 
 // Main app component: manages the garage, active vehicle, and forms.
-function App() {
+function accountPage() {
+  const page = window.location.hash.slice(1);
+  return ["profile", "documents", "manage-garage", "settings"].includes(page) ? page : "";
+}
+
+function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }) {
+  const [page, setPage] = useState(accountPage);
+  useEffect(() => {
+    const navigate = () => setPage(accountPage());
+    window.addEventListener("hashchange", navigate);
+    return () => window.removeEventListener("hashchange", navigate);
+  }, []);
+
   // Load vehicle records from browser storage when the app starts.
   const [vehicles, setVehicles] = useState<Vehicle[]>(loadVehicles);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -488,27 +504,27 @@ function App() {
   }
 
   // Copy saved details into a draft so Cancel can discard unsaved edits.
-  function startEditingInfo() {
-    if (!selectedVehicle) return;
+  function startEditingInfo(vehicle = selectedVehicle) {
+    if (!vehicle) return;
     setInfoDraft({
-      type: selectedVehicle.type,
-      make: selectedVehicle.make,
-      model: selectedVehicle.model,
-      year: selectedVehicle.year,
-      registration: selectedVehicle.registration,
-      vin: selectedVehicle.vin ?? "",
-      engineSizeCc: selectedVehicle.engineSizeCc ?? "",
-      fuelType: selectedVehicle.fuelType ?? "",
-      transmission: selectedVehicle.transmission ?? "",
-      bodyStyle: selectedVehicle.bodyStyle ?? "",
-      numberOfDoors: selectedVehicle.numberOfDoors ?? "",
-      numberOfSeats: selectedVehicle.numberOfSeats ?? "",
-      engineNumber: selectedVehicle.engineNumber ?? "",
-      registrationCounty: selectedVehicle.registrationCounty ?? "",
-      manufactureDate: selectedVehicle.manufactureDate ?? "",
-      colour: selectedVehicle.colour,
-      notes: selectedVehicle.notes,
-      imported: selectedVehicle.imported ?? false,
+      type: vehicle.type,
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      registration: vehicle.registration,
+      vin: vehicle.vin ?? "",
+      engineSizeCc: vehicle.engineSizeCc ?? "",
+      fuelType: vehicle.fuelType ?? "",
+      transmission: vehicle.transmission ?? "",
+      bodyStyle: vehicle.bodyStyle ?? "",
+      numberOfDoors: vehicle.numberOfDoors ?? "",
+      numberOfSeats: vehicle.numberOfSeats ?? "",
+      engineNumber: vehicle.engineNumber ?? "",
+      registrationCounty: vehicle.registrationCounty ?? "",
+      manufactureDate: vehicle.manufactureDate ?? "",
+      colour: vehicle.colour,
+      notes: vehicle.notes,
+      imported: vehicle.imported ?? false,
     });
     setIsEditingInfo(true);
   }
@@ -841,7 +857,25 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <>
+      <AccountProfile user={user} onSignOut={onSignOut} page={page} count={vehicles.length} onGarage={() => { setSelectedId(null); cancelEditingInfo(); }} />
+      {(!page || page === "manage-garage") && <div className="auth-local-notice">Vehicle records are saved in this browser.</div>}
+      {page && page !== "profile" && <main className="account-page">
+        <a className="account-back" href="#garage" onClick={() => { setSelectedId(null); cancelEditingInfo(); }}>← My Garage</a>
+        {page === "documents" && <PersonalDocuments userId={user.id} />}
+        {page === "manage-garage" && <ManageGarage vehicles={vehicles} onDelete={deleteVehicle} onEdit={vehicleId => {
+          const vehicle = vehicles.find(item => item.id === vehicleId);
+          if (!vehicle) return;
+          setSelectedId(vehicle.id);
+          setActiveTab("info");
+          resetServiceForm();
+          setShowServiceForm(false);
+          startEditingInfo(vehicle);
+          window.location.hash = "garage";
+        }} />}
+        {page === "settings" && <><h1>Settings</h1><p>No preferences available yet.</p></>}
+      </main>}
+      {!page && (    <div className="app-shell">
       {/* Main content changes between the garage overview and a vehicle profile. */}
       <main className="main-content">
         {selectedVehicle ? (
@@ -971,7 +1005,7 @@ function App() {
                     <h2>Vehicle information</h2>
                     <p>{isEditingInfo ? "Update the details for this vehicle." : "Key details for your vehicle, all in one place."}</p>
                   </div>
-                  {!isEditingInfo && <button className="button button-secondary" onClick={startEditingInfo}>✎ Edit details</button>}
+                  {!isEditingInfo && <button className="button button-secondary" onClick={() => startEditingInfo()}>✎ Edit details</button>}
                 </div>
                 {isEditingInfo && infoDraft ? (
                   <form onSubmit={(event) => { event.preventDefault(); saveVehicleInfo(); }}>
@@ -1608,7 +1642,8 @@ function App() {
             <button type="button" className="button button-primary" onClick={confirmPhotoCrop}>Confirm</button></div>
         </section>
       </div>}
-    </div>
+    </div>)}
+    </>
   );
 }
 

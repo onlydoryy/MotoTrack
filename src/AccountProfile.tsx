@@ -4,8 +4,32 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import "./AccountProfile.css";
 
-export default function AccountProfile({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+const icons: Record<string, string> = {
+  profile: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2",
+  documents: "M5 3h9l5 5v13H5z M14 3v6h5 M8 13h8 M8 17h6",
+  "manage-garage": "M3 21V9l9-6 9 6v12 M7 21V11h10v10 M7 15h10 M7 18h10",
+  settings: "M4 7h8 M16 7h4 M4 17h2 M10 17h10 M16 7a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM10 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"
+};
+
+export default function AccountProfile({ user, onSignOut, page, count, onGarage }: { user: User; onSignOut: () => Promise<void>; page: string; count: number; onGarage: () => void }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    function dismiss(event: PointerEvent) {
+      if (menu.current && !menu.current.contains(event.target as Node)) menu.current.open = false;
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key === "Escape" && menu.current?.open) {
+        menu.current.open = false;
+        menu.current.querySelector("summary")?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", escape);
+    };
+  }, []);
   const savedName = typeof user.user_metadata.display_name === "string" ? user.user_metadata.display_name : "";
   const label = savedName || user.email?.split("@")[0] || "My profile";
   const [name, setName] = useState(savedName);
@@ -76,13 +100,24 @@ export default function AccountProfile({ user, onSignOut }: { user: User; onSign
   const initials = label.trim().split(/\s+/).slice(0, 2).map((part: string) => Array.from(part)[0]).join("").toUpperCase();
   const avatar = <span className="profile-avatar" aria-hidden="true">{preview ? <img src={preview} alt="" /> : initials}</span>;
 
-  return <div className="profile-bar">
-    <button className="profile-trigger" aria-label={`Open profile for ${label}`} aria-haspopup="dialog"
-      onClick={() => { setName(savedName); setNotice(""); setError(""); dialog.current?.showModal(); }}>
-      {avatar}<span>{label}</span>
-    </button>
-    <dialog ref={dialog} className="profile-dialog" aria-labelledby="profile-title" onCancel={event => { if (busy) event.preventDefault(); }}>
-      <header><h2 id="profile-title">My profile</h2><button type="button" disabled={busy} onClick={() => dialog.current?.close()}>Close</button></header>
+  return <>
+    <div className="profile-bar"><details ref={menu} className="account-menu">
+      <summary className="profile-trigger" aria-label={`Account menu for ${label}`}>{avatar}<span>{label}</span><span aria-hidden="true">▾</span></summary>
+      <nav aria-label="Account" className="account-links">
+        <div className="menu-identity">{avatar}<strong>{label}</strong></div>
+        {([["profile", "Profile"], ["documents", "My documents"], ["manage-garage", "Manage garage"], ["settings", "Settings"]] as const).map(([id, title]) =>
+          <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => {
+            if (menu.current) menu.current.open = false;
+            if (page !== "profile") { setName(savedName); setError(""); setNotice(""); }
+          }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d={icons[id]} /></svg>{title}</a>)}
+        <button type="button" onClick={onSignOut}>Sign out</button>
+      </nav>
+    </details></div>
+    {page === "profile" && <main className="account-page">
+      <a className="account-back" href="#garage" onClick={onGarage}>← My Garage</a>
+      <h1>Profile</h1>
+      <section className="profile-dialog profile-panel">
+      <header><h2>{label}</h2><a href="#manage-garage">{count} {count === 1 ? "vehicle" : "vehicles"} in garage</a></header>
       <div className="profile-picture">{avatar}<div>
         <label htmlFor="profile-photo">Profile picture</label>
         <input id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || loadingPhoto}
@@ -99,7 +134,7 @@ export default function AccountProfile({ user, onSignOut }: { user: User; onSign
       </form>
       {error && <p role="alert" className="auth-feedback auth-error">{error}</p>}
       {notice && <p role="status" className="auth-feedback auth-success">{notice}</p>}
-      <footer><button type="button" disabled={busy} onClick={onSignOut}>Sign out</button></footer>
-    </dialog>
-  </div>;
+      </section>
+    </main>}
+  </>;
 }

@@ -3,7 +3,6 @@ import type { FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import App from "./App";
-import AccountProfile from "./AccountProfile";
 import "./AuthGate.css";
 
 type Mode = "login" | "register";
@@ -83,13 +82,7 @@ export default function AuthGate() {
     </div></div>
   );
   if (checking) return <div className="auth-loading">Loading MotoTrack…</div>;
-  if (session) return (
-    <>
-      <AccountProfile key={session.user.id} user={session.user} onSignOut={signOut} />
-      <div className="auth-local-notice">Vehicle records are still saved on this browser, not yet linked to your account.</div>
-      <App />
-    </>
-  );
+  if (session) return <App key={session.user.id} user={session.user} onSignOut={signOut} />;
 
   return (
     <div className="auth-screen">
