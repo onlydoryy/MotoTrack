@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import "./AccountProfile.css";
+import Icon from "./InterfaceIcon";
 
 const icons: Record<string, string> = {
   profile: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2",
@@ -106,6 +107,13 @@ export default function AccountProfile({ user, onSignOut, page, count, onGarage 
         <span className="brand-mark">M</span>
         <span>Moto<span className="brand-light">Track</span></span>
       </a>
+      <nav className="main-nav" aria-label="Main navigation">
+        {([["garage","Logbook","garage"],["manage-garage","Vehicles","tools"],["documents","Documents","documents"],["profile","Profile","profile"]] as const).map(([route, label, icon]) =>
+          <a key={route} href={`#${route}`} aria-current={(page || "garage") === route ? "page" : undefined}
+            onClick={() => { if (route === "garage") onGarage(); if (menu.current) menu.current.open = false; }}>
+            <Icon name={icon} />{label}
+          </a>)}
+      </nav>
       <details ref={menu} className="account-menu">
       <summary className="profile-trigger" aria-label={`Account menu for ${label}`}>{avatar}<span>{label}</span><span aria-hidden="true">▾</span></summary>
       <nav aria-label="Account" className="account-links">
@@ -119,7 +127,7 @@ export default function AccountProfile({ user, onSignOut, page, count, onGarage 
       </nav>
       </details>
     </header>
-    {page === "profile" && <main className="account-page">
+    {page === "profile" && <main id="main-content" tabIndex={-1} className="account-page">
       <a className="account-back" href="#garage" onClick={onGarage}>← My Garage</a>
       <h1>Profile</h1>
       <section className="profile-dialog profile-panel">
