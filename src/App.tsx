@@ -10,6 +10,7 @@ import "./Appearance.css";
 import { supabase } from "./lib/supabase";
 
 import { useCloudGarage } from "./lib/useCloudGarage";
+import { useVehicleOffers } from "./lib/useVehicleOffers";
 import { downloadVehicleDocument } from "./lib/cloudGarage";
 import type { DocumentFolder, ReceiptAttachment, ServiceKind, ServiceRecord, Vehicle, VehicleDocument, VehicleType } from "./lib/garageTypes";
 
@@ -160,6 +161,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
 
   const garage = useCloudGarage(user.id);
   const { vehicles } = garage;
+  const vehicleOffers = useVehicleOffers(user.id);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [infoDraft, setInfoDraft] = useState<VehicleInfoDraft | null>(null);
   const [expiryEdit, setExpiryEdit] = useState<{ vehicleId: string; field: "taxExpiry" | "testExpiry"; value: string } | null>(null);
@@ -665,7 +667,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
 
   return (
     <>
-      <AccountProfile user={user} onSignOut={onSignOut} page={page} count={vehicles.length} onGarage={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
+      <AccountProfile user={user} onSignOut={onSignOut} page={page} count={vehicles.length} shareCount={vehicleOffers.offers.length} onGarage={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
       {(!page || page === "manage-garage") && <>
         {garage.busy && <div className="auth-local-notice" role="status">Working on your garage…</div>}
         {!garage.ready && !garage.error && <div className="auth-local-notice" role="status">Loading your garage…</div>}
@@ -681,7 +683,12 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
       {page && page !== "profile" && <main className="account-page">
         <a className="account-back" href="#garage" onClick={() => { setSelectedId(null); cancelEditingInfo(); }}>← My Garage</a>
         {page === "documents" && <PersonalDocuments userId={user.id} />}
-        {page === "manage-garage" && garage.ready && <div inert={garage.busy}><ManageGarage vehicles={vehicles} onDelete={deleteVehicle} onEdit={vehicleId => {
+        {page === "manage-garage" && garage.ready && <div inert={garage.busy}><ManageGarage vehicles={vehicles}
+          offers={vehicleOffers.offers} acceptingOffer={vehicleOffers.accepting} offerError={vehicleOffers.error}
+          onAcceptOffer={(id) => void garage.perform(async () => {
+            if (await vehicleOffers.accept(id)) garage.reload();
+          })}
+          onDelete={deleteVehicle} onEdit={vehicleId => {
           const vehicle = vehicles.find(item => item.id === vehicleId);
           if (!vehicle) return;
           setSelectedId(vehicle.id);

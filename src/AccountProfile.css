@@ -131,3 +131,25 @@
 .personal-document h2 { font-size: 1.1rem; margin: 0 0 4px; }
 .personal-document p { white-space: pre-wrap; margin-top: 10px; }
 .personal-document .row-actions { margin-top: 12px; }
+
+.vehicle-share-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: #ba1834;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.account-links .vehicle-share-badge { margin-inline-start: auto; }
+.vehicle-share-offers { margin: 0 0 24px; }
+.vehicle-share-offer { padding: 16px 18px; }
+.vehicle-share-offer h3 { margin: 0 0 8px; }
+.vehicle-share-offer dl { display: grid; gap: 6px; margin: 0 0 12px; }
+.vehicle-share-offer dl div { display: flex; flex-wrap: wrap; gap: 6px; }
+.vehicle-share-offer dt { font-weight: 600; }
+.vehicle-share-offer dd { margin: 0; overflow-wrap: anywhere; }

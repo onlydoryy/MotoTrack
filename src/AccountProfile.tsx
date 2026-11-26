@@ -11,7 +11,7 @@ const icons: Record<string, string> = {
   settings: "M4 7h8 M16 7h4 M4 17h2 M10 17h10 M16 7a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM10 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"
 };
 
-export default function AccountProfile({ user, onSignOut, page, count, onGarage }: { user: User; onSignOut: () => Promise<void>; page: string; count: number; onGarage: () => void }) {
+export default function AccountProfile({ user, onSignOut, page, count, shareCount, onGarage }: { user: User; onSignOut: () => Promise<void>; page: string; count: number; shareCount: number; onGarage: () => void }) {
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     function dismiss(event: PointerEvent) {
@@ -98,6 +98,8 @@ export default function AccountProfile({ user, onSignOut, page, count, onGarage 
   }
 
   const initials = label.trim().split(/\s+/).slice(0, 2).map((part: string) => Array.from(part)[0]).join("").toUpperCase();
+  const shareLabel = shareCount === 1 ? "1 vehicle offer" : `${shareCount} vehicle offers`;
+  const shareBadge = shareCount > 0 && <span className="vehicle-share-badge" aria-hidden="true">{shareCount}</span>;
   const avatar = <span className="profile-avatar" aria-hidden="true">{preview ? <img src={preview} alt="" /> : initials}</span>;
 
   return <>
@@ -107,14 +109,14 @@ export default function AccountProfile({ user, onSignOut, page, count, onGarage 
         <span>Moto<span className="brand-light">Track</span></span>
       </a>
       <details ref={menu} className="account-menu">
-      <summary className="profile-trigger" aria-label={`Account menu for ${label}`}>{avatar}<span>{label}</span><span aria-hidden="true">▾</span></summary>
+      <summary className="profile-trigger" aria-label={`Account menu for ${label}${shareCount ? `, ${shareLabel}` : ""}`}>{avatar}<span>{label}</span>{shareBadge}<span aria-hidden="true">▾</span></summary>
       <nav aria-label="Account" className="account-links">
         <div className="menu-identity">{avatar}<strong>{label}</strong></div>
         {([["profile", "Profile"], ["documents", "My documents"], ["manage-garage", "Manage garage"], ["settings", "Settings"]] as const).map(([id, title]) =>
-          <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => {
+          <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} aria-label={id === "manage-garage" && shareCount ? `${title}, ${shareLabel}` : undefined} onClick={() => {
             if (menu.current) menu.current.open = false;
             if (page !== "profile") { setName(savedName); setError(""); setNotice(""); }
-          }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d={icons[id]} /></svg>{title}</a>)}
+          }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d={icons[id]} /></svg>{title}{id === "manage-garage" && shareBadge}</a>)}
         <button type="button" onClick={onSignOut}>Sign out</button>
       </nav>
       </details>

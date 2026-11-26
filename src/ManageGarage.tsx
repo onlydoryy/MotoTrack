@@ -2,9 +2,18 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { supabase } from "./lib/supabase";
+import type { VehicleOffer } from "./lib/useVehicleOffers";
 
 type GarageVehicle = { id: string; make: string; model: string; registration: string; year: string; type: string };
-type Props = { vehicles: GarageVehicle[]; onEdit: (id: string) => void; onDelete: (id: string) => void };
+type Props = {
+  vehicles: GarageVehicle[];
+  offers: VehicleOffer[];
+  acceptingOffer: string | null;
+  offerError: string;
+  onAcceptOffer: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+};
 
 function ShareVehicleForm({ vehicleId, onCancel }: { vehicleId: string; onCancel: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -30,7 +39,7 @@ function ShareVehicleForm({ vehicleId, onCancel }: { vehicleId: string; onCancel
       if (response.error) throw response.error;
       setResult(response.data?.alreadyShared
         ? `A copy was already sent to ${email}.`
-        : `Copy sent to ${email}. It will appear in their garage.`);
+        : `Copy sent to ${email}. They can accept it in Manage Garage.`);
     } catch (err) {
       let message = "The copy could not be sent. Try again.";
       if (err instanceof FunctionsHttpError) {
@@ -44,7 +53,7 @@ function ShareVehicleForm({ vehicleId, onCancel }: { vehicleId: string; onCancel
   }
 
   return <form className="share-vehicle-form" onSubmit={sendCopy}>
-    <p>The buyer gets their own copy of the vehicle details, photo and service history. Your copy stays in your garage.</p>
+    <p>When the buyer accepts, they get their own copy of the vehicle details, photo and service history. Your copy stays in your garage.</p>
     <fieldset disabled={busy || Boolean(result)}>
       <label className="share-recipient">
         Buyer’s MotoTrack email
@@ -63,11 +72,29 @@ function ShareVehicleForm({ vehicleId, onCancel }: { vehicleId: string; onCancel
   </form>;
 }
 
-export default function ManageGarage({ vehicles, onEdit, onDelete }: Props) {
+export default function ManageGarage({ vehicles, offers, acceptingOffer, offerError, onAcceptOffer, onEdit, onDelete }: Props) {
   const [expanded, setExpanded] = useState("");
   const [sharing, setSharing] = useState(false);
   return <>
     <h1>Manage garage</h1>
+    {offerError && <p className="auth-feedback auth-error" role="alert">{offerError}</p>}
+    {offers.length > 0 && <section className="vehicle-share-offers" aria-labelledby="vehicle-offers-heading">
+      <h2 id="vehicle-offers-heading">Add vehicle?</h2>
+      <div className="account-list">
+        {offers.map((offer) => <article className="account-row vehicle-share-offer" key={offer.id}>
+          <h3>{[offer.make, offer.model].filter(Boolean).join(" ") || "Vehicle copy"}</h3>
+          <dl>
+            <div><dt>Colour</dt><dd>{offer.colour || "Unrecorded"}</dd></div>
+            <div><dt>Registration</dt><dd>{offer.registration || "Unrecorded"}</dd></div>
+            <div><dt>Sent by</dt><dd>{offer.sender_name}</dd></div>
+          </dl>
+          <button type="button" className="button button-primary" disabled={acceptingOffer !== null}
+            onClick={() => onAcceptOffer(offer.id)}>
+            {acceptingOffer === offer.id ? "Adding vehicle…" : "Add vehicle"}
+          </button>
+        </article>)}
+      </div>
+    </section>}
     {!vehicles.length && <p>Your garage is empty. Add a vehicle from My Garage.</p>}
     <div className="account-list">{vehicles.map(vehicle => {
       const title = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || vehicle.type;
