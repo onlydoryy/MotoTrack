@@ -76,7 +76,7 @@ export default function ManageGarage({ vehicles, onEdit, onDelete }: Props) {
         <button className="vehicle-disclosure" type="button" aria-expanded={open} onClick={() => {
           setExpanded(open ? "" : vehicle.id);
           setSharing(false);
-        }}><span><strong>{title}</strong><small>{vehicle.registration} · {vehicle.type}</small></span><span aria-hidden="true">{open ? "−" : "+"}</span></button>
+        }}><span><strong>{title}</strong><small>{[vehicle.registration, vehicle.type].filter(Boolean).join(" · ")}</small></span><span aria-hidden="true">{open ? "−" : "+"}</span></button>
         {open && <div className="row-actions">
           <button type="button" onClick={() => onEdit(vehicle.id)}>Edit</button>
           <button type="button" aria-expanded={sharing} onClick={() => setSharing(!sharing)}>Share</button>

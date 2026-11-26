@@ -1,7 +1,7 @@
 import type { Vehicle } from "./garageTypes";
 
-// Demo vehicles shown the first time the app is opened without saved data.
-const starterVehicles: Vehicle[] = [
+// Used to recognise untouched examples when reading older browser backups.
+const legacyExamples: Vehicle[] = [
   {
     id: "demo-car",
     type: "Car",
@@ -108,9 +108,12 @@ export function legacyVehicles(saved: string): Vehicle[] {
     documents: (vehicle.documents ?? []).map((doc) => ({ ...doc, folderId: doc.folderId ?? null })),
     documentFolders: vehicle.documentFolders ?? [],
   })).filter((vehicle) => {
-    const demo = starterVehicles.find((item) => item.id === vehicle.id);
+    const demo = legacyExamples.find((item) => item.id === vehicle.id);
     return !demo || Object.keys(demo).some((key) =>
       JSON.stringify(demo[key as keyof Vehicle]) !== JSON.stringify(vehicle[key as keyof Vehicle])
     ) || vehicle.favorite;
-  });
+  }).map((vehicle) => ({
+    ...vehicle,
+    registration: vehicle.registration.trim().toLowerCase() === "demo vehicle" ? "" : vehicle.registration,
+  }));
 }
