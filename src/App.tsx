@@ -9,30 +9,11 @@ import "./App.css";
 import "./Appearance.css";
 import { supabase } from "./lib/supabase";
 
-// Supported vehicle categories and the three tabs on a vehicle profile.
-type VehicleType = "Car" | "Motorcycle" | "Commercial" | "Other";
+import { useCloudGarage } from "./lib/useCloudGarage";
+import { downloadVehicleDocument } from "./lib/cloudGarage";
+import type { DocumentFolder, ReceiptAttachment, ServiceKind, ServiceRecord, Vehicle, VehicleDocument, VehicleType } from "./lib/garageTypes";
+
 type Tab = "info" | "service" | "documents";
-
-// One history entry is either routine maintenance or a repair.
-type ServiceKind = "Service" | "Repair";
-
-// Receipt photos are stored with their history entry in this browser-only version.
-type ReceiptAttachment = { id: string; name: string; image: string };
-
-// Optional fields allow older saved records to load without breaking.
-type ServiceRecord = {
-  id: string;
-  date: string;
-  description: string;
-  mileage: number;
-  cost: number;
-  kind?: ServiceKind;
-  items?: string[];
-  trackedItems?: string[];
-  garage?: string;
-  notes?: string;
-  receipts?: ReceiptAttachment[];
-};
 
 // Searchable preset jobs, grouped by the type of maintenance they belong to.
 const generalMaintenanceGroups = [
@@ -49,165 +30,6 @@ const motorcycleMaintenanceGroups = [
   { title: "Suspension & bearings", items: ["Fork oil change", "Fork seal replacement", "Steering head bearing check", "Wheel bearing check", "Swingarm and linkage bearing service"] },
   { title: "Controls & electrics", items: ["Clutch cable adjustment", "Throttle cable adjustment", "Clutch fluid change", "Battery"] },
 ];
-
-// Lightweight metadata for documents listed in the Documents tab.
-type VehicleDocument = {
-  id: string;
-  name: string;
-  dateAdded: string;
-  folderId?: string | null;
-};
-
-type DocumentFolder = {
-  id: string;
-  name: string;
-};
-
-// Complete saved vehicle shape, including service history and document metadata.
-type Vehicle = {
-  id: string;
-  type: VehicleType;
-  make: string;
-  model: string;
-  year: string;
-  registration: string;
-  vin: string;
-  engineSizeCc: string;
-  fuelType: string;
-  transmission: string;
-  bodyStyle: string;
-  numberOfDoors: string;
-  numberOfSeats: string;
-  engineNumber: string;
-  registrationCounty: string;
-  manufactureDate: string;
-  mileage: number;
-  colour: string;
-  taxExpiry: string;
-  testExpiry: string;
-  imported: boolean;
-  notes: string;
-  image: string;
-  dateAdded: number;
-  favorite?: boolean;
-  serviceRecords: ServiceRecord[];
-  documents: VehicleDocument[];
-  documentFolders: DocumentFolder[];
-};
-
-// Demo vehicles shown the first time the app is opened without saved data.
-const starterVehicles: Vehicle[] = [
-  {
-    id: "demo-car",
-    type: "Car",
-    make: "BMW",
-    model: "320d",
-    year: "2008",
-    registration: "Demo vehicle",
-    vin: "",
-    engineSizeCc: "",
-    fuelType: "",
-    transmission: "",
-    bodyStyle: "",
-    numberOfDoors: "",
-    numberOfSeats: "",
-    engineNumber: "",
-    registrationCounty: "",
-    manufactureDate: "",
-    mileage: 319000,
-    colour: "Black",
-    taxExpiry: "",
-    testExpiry: "",
-    imported: false,
-    notes: "Add your own details to customise this vehicle record.",
-    image: "",
-    dateAdded: 1,
-    serviceRecords: [],
-    documents: [],
-    documentFolders: [],
-  },
-  {
-    id: "demo-bike",
-    type: "Motorcycle",
-    make: "Suzuki",
-    model: "Bandit 600S",
-    year: "2002",
-    registration: "Demo vehicle",
-    vin: "",
-    engineSizeCc: "",
-    fuelType: "",
-    transmission: "",
-    bodyStyle: "",
-    numberOfDoors: "",
-    numberOfSeats: "",
-    engineNumber: "",
-    registrationCounty: "",
-    manufactureDate: "",
-    mileage: 45000,
-    colour: "Blue",
-    taxExpiry: "",
-    testExpiry: "",
-    imported: false,
-    notes: "",
-    image: "",
-    dateAdded: 2,
-    serviceRecords: [],
-    documents: [],
-    documentFolders: [],
-  },
-];
-
-// Load saved vehicles and fill in missing fields from older versions of the app.
-function loadVehicles(): Vehicle[] {
-  try {
-    const saved = localStorage.getItem("mototrack-vehicles");
-    if (!saved) return starterVehicles;
-    const parsed = JSON.parse(saved) as Partial<Vehicle>[];
-    if (!Array.isArray(parsed)) return starterVehicles;
-
-    return parsed.map((vehicle, index) => ({
-      ...vehicle,
-      id: vehicle.id ?? `vehicle-${index}-${Date.now()}`,
-      type: (vehicle.type as string) === "Van" ? "Commercial" : vehicle.type ?? "Other",
-      make: vehicle.make ?? "",
-      model: vehicle.model ?? "",
-      year: vehicle.year ?? "",
-      registration: vehicle.registration ?? "",
-      vin: vehicle.vin ?? "",
-      engineSizeCc: vehicle.engineSizeCc ?? "",
-      fuelType: vehicle.fuelType ?? "",
-      transmission: vehicle.transmission ?? "",
-      bodyStyle: vehicle.bodyStyle ?? "",
-      numberOfDoors: vehicle.numberOfDoors ?? "",
-      numberOfSeats: vehicle.numberOfSeats ?? "",
-      engineNumber: vehicle.engineNumber ?? "",
-      registrationCounty: vehicle.registrationCounty ?? "",
-      manufactureDate: vehicle.manufactureDate ?? "",
-      mileage: typeof vehicle.mileage === "number" ? vehicle.mileage : 0,
-      colour: vehicle.colour ?? "",
-      taxExpiry: vehicle.taxExpiry ?? "",
-      testExpiry: vehicle.testExpiry ?? "",
-      imported: vehicle.imported ?? false,
-      notes: vehicle.notes ?? "",
-      image: vehicle.image ?? "",
-      dateAdded: typeof vehicle.dateAdded === "number" ? vehicle.dateAdded : Date.now(),
-      favorite: vehicle.favorite ?? false,
-      serviceRecords: (vehicle.serviceRecords ?? []).map((record) => ({
-        ...record,
-        kind: record.kind ?? "Service",
-        items: record.items ?? [],
-        trackedItems: record.trackedItems ?? [],
-        garage: record.garage ?? "",
-        notes: record.notes ?? "",
-        receipts: record.receipts ?? [],
-      })),
-      documents: (vehicle.documents ?? []).map((doc) => ({ ...doc, folderId: doc.folderId ?? null })),
-      documentFolders: vehicle.documentFolders ?? [],
-    })) as Vehicle[];
-  } catch {
-    return starterVehicles;
-  }
-}
 
 // Simple inline SVG placeholder used when a vehicle has no uploaded photo.
 function VehicleIllustration({ type }: { type: VehicleType }) {
@@ -336,8 +158,8 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
 
-  // Load vehicle records from browser storage when the app starts.
-  const [vehicles, setVehicles] = useState<Vehicle[]>(loadVehicles);
+  const garage = useCloudGarage(user.id);
+  const { vehicles } = garage;
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [infoDraft, setInfoDraft] = useState<VehicleInfoDraft | null>(null);
   const [expiryEdit, setExpiryEdit] = useState<{ vehicleId: string; field: "taxExpiry" | "testExpiry"; value: string } | null>(null);
@@ -379,15 +201,6 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
   const [cropY, setCropY] = useState(50);
   const [isCropDragging, setIsCropDragging] = useState(false);
   const [stagedVehiclePhoto, setStagedVehiclePhoto] = useState<{ id: string; image: string } | null>(null);
-
-  // Persist the latest garage data after each change.
-  useEffect(() => {
-    try {
-      localStorage.setItem("mototrack-vehicles", JSON.stringify(vehicles));
-    } catch {
-      console.warn("MotoTrack could not save to browser storage.");
-    }
-  }, [vehicles]);
 
   // Resolve the active vehicle ID to the full saved vehicle object.
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedId) ?? null;
@@ -465,7 +278,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
   }
 
   // Read the add-vehicle form and create a new vehicle record.
-  function addVehicle(event: FormEvent<HTMLFormElement>) {
+  async function addVehicle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
 
@@ -499,7 +312,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
       documentFolders: [],
     };
 
-    setVehicles((current) => [...current, newVehicle]);
+    if (!await garage.save(newVehicle)) return;
     setSelectedId(newVehicle.id);
     setActiveTab("info");
     setShowAddModal(false);
@@ -512,9 +325,8 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
 
   // Toggle a favourite; favourites always appear before other vehicles.
   function toggleFavorite(vehicleId: string) {
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === vehicleId ? { ...vehicle, favorite: !vehicle.favorite } : vehicle,
-    ));
+    const vehicle = vehicles.find((item) => item.id === vehicleId);
+    if (vehicle) void garage.save({ ...vehicle, favorite: !vehicle.favorite });
   }
 
   // Copy saved details into a draft so Cancel can discard unsaved edits.
@@ -550,27 +362,23 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
   }
 
   // Apply the edited details to the selected vehicle, then close edit mode.
-  function saveVehicleInfo() {
+  async function saveVehicleInfo() {
     if (!selectedVehicle || !infoDraft) return;
+    if (!await garage.save({ ...selectedVehicle, ...infoDraft })) return;
     if (infoDraft.type !== selectedVehicle.type) {
       resetServiceForm();
       setShowServiceForm(false);
     }
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === selectedVehicle.id ? { ...vehicle, ...infoDraft } : vehicle,
-    ));
     setInfoDraft(null);
     setIsEditingInfo(false);
   }
 
   // Update one existing status card without changing the other expiry date.
-  function saveExpiryDate(event: FormEvent<HTMLFormElement>) {
+  async function saveExpiryDate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!expiryEdit || !selectedVehicle || expiryEdit.vehicleId !== selectedVehicle.id) return;
-    const { vehicleId, field, value } = expiryEdit;
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === vehicleId ? { ...vehicle, [field]: value } : vehicle,
-    ));
+    const { field, value } = expiryEdit;
+    if (!await garage.save({ ...selectedVehicle, [field]: value })) return;
     setExpiryEdit(null);
   }
 
@@ -648,11 +456,10 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
     image.src = cropSource;
   }
 
-  function saveStagedVehiclePhoto() {
+  async function saveStagedVehiclePhoto() {
     if (!stagedVehiclePhoto) return;
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === stagedVehiclePhoto.id ? { ...vehicle, image: stagedVehiclePhoto.image } : vehicle,
-    ));
+    const vehicle = vehicles.find((item) => item.id === stagedVehiclePhoto.id);
+    if (!vehicle || !await garage.save({ ...vehicle, image: stagedVehiclePhoto.image, imagePath: undefined })) return;
     setStagedVehiclePhoto(null);
   }
 
@@ -677,7 +484,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
     setMaintenanceSearch("");
   }
 
-  // Compress receipt images so storing them locally uses less browser storage.
+  // Compress receipt images before uploading.
   async function handleReceiptUpload(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
@@ -718,7 +525,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
   }
 
   // Save one combined history entry, including all selected work and receipt photos.
-  function addServiceRecord(event: FormEvent<HTMLFormElement>) {
+  async function addServiceRecord(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedVehicle) return;
 
@@ -752,40 +559,38 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
       receipts: serviceReceipts,
     };
 
-    setVehicles((current) =>
-      current.map((vehicle) =>
-        vehicle.id === selectedVehicle.id
-          ? { ...vehicle, mileage: record.mileage, serviceRecords: [record, ...vehicle.serviceRecords] }
-          : vehicle,
-      ),
-    );
+    if (!await garage.save({
+      ...selectedVehicle,
+      mileage: record.mileage,
+      serviceRecords: [record, ...selectedVehicle.serviceRecords],
+    })) return;
 
     resetServiceForm();
     setShowServiceForm(false);
   }
 
-  // The current Documents tab stores filenames/metadata, not the underlying file bytes.
   // A folder ID of null means Unfiled, including documents from older versions.
-  function addDocument(event: ChangeEvent<HTMLInputElement>) {
+  async function addDocument(event: ChangeEvent<HTMLInputElement>) {
     if (!selectedVehicle) return;
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
     if (!files.length) return;
+    if (files.some((file) => !["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024)) {
+      window.alert("Choose PDF, JPG, PNG or WebP files up to 10 MB each.");
+      return;
+    }
     const folderId = openDocumentFolder?.vehicleId === selectedVehicle.id ? openDocumentFolder.folderId : null;
     const newDocuments: VehicleDocument[] = files.map((file) => ({
       id: crypto.randomUUID(),
       name: file.name,
       dateAdded: new Date().toISOString().slice(0, 10),
       folderId,
+      file,
     }));
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === selectedVehicle.id
-        ? { ...vehicle, documents: [...newDocuments, ...vehicle.documents] }
-        : vehicle,
-    ));
+    await garage.save({ ...selectedVehicle, documents: [...newDocuments, ...selectedVehicle.documents] });
   }
 
-  function createDocumentFolder() {
+  async function createDocumentFolder() {
     if (!selectedVehicle) return;
     const entered = window.prompt(isMotorcycle ? "Folder name (for example, Insurance):" : "Folder name (for example, NCT Reports):");
     if (entered === null) return;
@@ -796,11 +601,9 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
       window.alert("A folder with that name already exists for this vehicle."); return;
     }
     const newFolder: DocumentFolder = { id: crypto.randomUUID(), name };
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === selectedVehicle.id
-        ? { ...vehicle, documentFolders: [...vehicle.documentFolders, newFolder] }
-        : vehicle,
-    ));
+    if (!await garage.save({
+      ...selectedVehicle, documentFolders: [...selectedVehicle.documentFolders, newFolder],
+    })) return;
     setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: newFolder.id });
   }
 
@@ -816,68 +619,69 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
       item.id !== folderId && item.name.toLowerCase() === name.toLowerCase())) {
       window.alert("Another folder already has that name."); return;
     }
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === selectedVehicle.id
-        ? { ...vehicle, documentFolders: vehicle.documentFolders.map((item) =>
-            item.id === folderId ? { ...item, name } : item) }
-        : vehicle,
-    ));
+    void garage.save({
+      ...selectedVehicle,
+      documentFolders: selectedVehicle.documentFolders.map((item) => item.id === folderId ? { ...item, name } : item),
+    });
   }
 
-  function deleteDocumentFolder(folderId: string) {
+  async function deleteDocumentFolder(folderId: string) {
     if (!selectedVehicle) return;
     const folder = selectedVehicle.documentFolders.find((item) => item.id === folderId);
     if (!folder) return;
     const count = selectedVehicle.documents.filter((doc) => doc.folderId === folderId).length;
     if (!window.confirm(`Delete folder "${folder.name}"? ${count ? `${count} document record(s) will move to Unfiled.` : "The folder is empty."} No document records will be deleted.`)) return;
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === selectedVehicle.id
-        ? {
-            ...vehicle,
-            documentFolders: vehicle.documentFolders.filter((item) => item.id !== folderId),
-            documents: vehicle.documents.map((doc) => doc.folderId === folderId ? { ...doc, folderId: null } : doc),
-          }
-        : vehicle,
-    ));
+    if (!await garage.save({
+      ...selectedVehicle,
+      documentFolders: selectedVehicle.documentFolders.filter((item) => item.id !== folderId),
+      documents: selectedVehicle.documents.map((doc) => doc.folderId === folderId ? { ...doc, folderId: null } : doc),
+    })) return;
     setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: null });
   }
 
   function moveDocument(documentId: string, folderId: string | null) {
     if (!selectedVehicle) return;
     if (folderId && !selectedVehicle.documentFolders.some((folder) => folder.id === folderId)) return;
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === selectedVehicle.id
-        ? { ...vehicle, documents: vehicle.documents.map((doc) =>
-            doc.id === documentId ? { ...doc, folderId } : doc) }
-        : vehicle,
-    ));
+    void garage.save({
+      ...selectedVehicle,
+      documents: selectedVehicle.documents.map((doc) => doc.id === documentId ? { ...doc, folderId } : doc),
+    });
   }
 
   function deleteDocument(documentId: string) {
     if (!selectedVehicle || !window.confirm("Remove this document entry?")) return;
-    setVehicles((current) => current.map((vehicle) =>
-      vehicle.id === selectedVehicle.id
-        ? { ...vehicle, documents: vehicle.documents.filter((doc) => doc.id !== documentId) }
-        : vehicle,
-    ));
+    void garage.save({
+      ...selectedVehicle,
+      documents: selectedVehicle.documents.filter((doc) => doc.id !== documentId),
+    });
   }
 
-  // Confirm before deleting a vehicle and its associated local history.
-  function deleteVehicle(id: string) {
-    if (!window.confirm("Delete this vehicle and its records? This cannot be undone.")) return;
-
-    setVehicles((current) => current.filter((vehicle) => vehicle.id !== id));
-    setSelectedId(null);
+  // Confirm before deleting a vehicle and its associated history.
+  async function deleteVehicle(id: string) {
+    const vehicle = vehicles.find((item) => item.id === id);
+    if (!vehicle || !window.confirm("Delete this vehicle and its records? This cannot be undone.")) return;
+    if (await garage.remove(vehicle)) setSelectedId(null);
   }
 
   return (
     <>
       <AccountProfile user={user} onSignOut={onSignOut} page={page} count={vehicles.length} onGarage={() => { setSelectedId(null); cancelEditingInfo(); resetServiceForm(); setShowServiceForm(false); }} />
-      {(!page || page === "manage-garage") && <div className="auth-local-notice">Vehicle records are saved in this browser.</div>}
+      {(!page || page === "manage-garage") && <>
+        {garage.busy && <div className="auth-local-notice" role="status">Working on your garage…</div>}
+        {!garage.ready && !garage.error && <div className="auth-local-notice" role="status">Loading your garage…</div>}
+        {garage.error && <div className="auth-local-notice" role="alert">
+          {garage.error}{" "}
+          <button type="button" className="button button-secondary" onClick={garage.reload}>Reload garage</button>
+        </div>}
+        {garage.ready && garage.legacyCount > 0 && <div className="auth-local-notice">
+          This browser has {garage.legacyCount} saved vehicle record(s). Import them into {user.email || "this account"}?{" "}
+          <button type="button" className="button button-secondary" disabled={garage.busy} onClick={garage.importLocal}>Import browser records</button>
+        </div>}
+      </>}
       {page && page !== "profile" && <main className="account-page">
         <a className="account-back" href="#garage" onClick={() => { setSelectedId(null); cancelEditingInfo(); }}>← My Garage</a>
         {page === "documents" && <PersonalDocuments userId={user.id} />}
-        {page === "manage-garage" && <ManageGarage vehicles={vehicles} onDelete={deleteVehicle} onEdit={vehicleId => {
+        {page === "manage-garage" && garage.ready && <div inert={garage.busy}><ManageGarage vehicles={vehicles} onDelete={deleteVehicle} onEdit={vehicleId => {
           const vehicle = vehicles.find(item => item.id === vehicleId);
           if (!vehicle) return;
           setSelectedId(vehicle.id);
@@ -886,7 +690,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
           setShowServiceForm(false);
           startEditingInfo(vehicle);
           window.location.assign("#garage");
-        }} />}
+        }} /></div>}
         {page === "settings" && <>
           <h1>Settings</h1>
           <fieldset className="appearance-settings" disabled={pendingTheme !== null}>
@@ -902,7 +706,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
           {themeError && <p role="alert" className="auth-feedback auth-error">{themeError}</p>}
         </>}
       </main>}
-      {!page && (    <div className="app-shell">
+      {!page && garage.ready && (    <div className="app-shell" inert={garage.busy}>
       {/* Main content changes between the garage overview and a vehicle profile. */}
       <main className="main-content">
         {selectedVehicle ? (
@@ -1094,7 +898,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
                       <div className="vehicle-detail-item vehicle-detail-notes"><span>Notes</span><strong>{selectedVehicle.notes || "No notes added"}</strong></div>
                     </div>
                     <div className="panel-footer info-view-footer">
-                      <span className="save-hint">Saved locally on this device.</span>
+                      <span className="save-hint">Saved to your MotoTrack account.</span>
                       <button className="button button-danger-ghost" onClick={() => deleteVehicle(selectedVehicle.id)}>Delete vehicle</button>
                     </div>
                   </>
@@ -1268,7 +1072,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
               </div>
             )}
 
-            {/* Per-vehicle document filing. File contents are not yet uploaded/stored. */}
+            {/* Per-vehicle document filing and private attachments. */}
             {activeTab === "documents" && (() => {
               const folders = selectedVehicle.documentFolders ?? [];
               const documents = selectedVehicle.documents ?? [];
@@ -1292,11 +1096,11 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
                       <button type="button" className="button button-secondary" onClick={createDocumentFolder}>＋ New folder</button>
                       <label className="button button-primary upload-doc-button">
                         ＋ Add document
-                        <input type="file" multiple onChange={addDocument} />
+                        <input type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" onChange={addDocument} />
                       </label>
                     </div>
                   </div>
-                  <p className="document-note">Currently MotoTrack saves document names only, not the actual files. Keep your originals until file storage is introduced.</p>
+                  <p className="document-note">PDF, JPG, PNG or WebP · Up to 10 MB per file</p>
                   <div className="document-folder-nav">
                     <button type="button" className={`document-folder-tile ${currentFolderId === null ? "is-active" : ""}`}
                       onClick={() => setOpenDocumentFolder({ vehicleId: selectedVehicle.id, folderId: null })}>
@@ -1327,9 +1131,10 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
                           <div className="record-icon">▤</div>
                           <div className="record-main">
                             <strong>{doc.name}</strong>
-                            <span>Added {doc.dateAdded} · Filename only</span>
+                            <span>Added {doc.dateAdded}{!doc.storagePath && " · Original file needed"}</span>
                           </div>
                           <div className="document-entry-actions">
+                            {doc.storagePath && <button type="button" className="button button-secondary" onClick={() => void garage.perform(() => downloadVehicleDocument(doc))}>Download</button>}
                             <label>
                               <span>Move to</span>
                               <select aria-label={`Move ${doc.name} to folder`} value={doc.folderId && folders.some((folder) => folder.id === doc.folderId) ? doc.folderId : ""}
@@ -1488,7 +1293,7 @@ function App({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }
             )}
 
             <div className="page-footnote">
-              <span>✓</span> Your garage is saved locally on this device. Database sync can be added later.
+              <span>✓</span> Your garage is saved to your MotoTrack account.
             </div>
           </section>
         )}
